@@ -27,3 +27,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+# Python cache files
+__pycache__/
+*/__pycache__/
+**/__pycache__/
+*.pyc
