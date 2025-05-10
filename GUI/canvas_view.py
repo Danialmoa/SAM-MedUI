@@ -6,6 +6,7 @@ import numpy as np
 import os
 import logging
 import time
+import pydicom
 
 from SAM_finetune.utils.logger_func import setup_logger
 
@@ -52,16 +53,19 @@ class CanvasView:
 
     def load_image(self, image_path):
         """Load an image from path into the canvas"""
-        self.image_path = image_path
-        original_img = Image.open(image_path).convert('RGB')
-        self.original_image = np.array(original_img)
-         
+        if image_path.endswith('.dcm') or image_path.endswith('.dicom'):
+            self.original_image, dicom_data = self.load_dicom_image(image_path)
+        else:
+            original_img = Image.open(image_path).convert('RGB')
+            self.original_image = np.array(original_img)
+            dicom_data = None
+        
         h_orig, w_orig = self.original_image.shape[:2]
 
         # Get current canvas dimensions.
         canvas_w = self.canvas.winfo_width()
         canvas_h = self.canvas.winfo_height()
-        print(f"Canvas dimensions: {canvas_w}x{canvas_h}")
+
         scale_factor = 1.0
 
         # Calculate scale factor to fit original image into canvas dimensions
@@ -87,7 +91,7 @@ class CanvasView:
         # Update canvas
         self.update_canvas()
         
-        return True
+        return dicom_data
     
     def reset_view(self):
         """Reset zoom and pan settings"""
@@ -362,3 +366,15 @@ class CanvasView:
         
         # Apply gamma correction using the lookup table
         return cv2.LUT(image.copy(), table)
+    
+    def load_dicom_image(self, image_path):
+        """Load a DICOM image from path into the canvas"""
+        try:
+            dicom_file = pydicom.dcmread(image_path)
+            pixels = dicom_file.pixel_array
+            image = Image.fromarray(pixels).convert('RGB')
+            image_array = np.array(image)
+            return image_array, dicom_file
+        except Exception as e:
+            logger.error(f"Error loading DICOM image: {e}")
+            return None, None

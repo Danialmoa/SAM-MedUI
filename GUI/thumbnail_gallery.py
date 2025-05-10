@@ -3,6 +3,8 @@ from ttkbootstrap import Canvas, Scrollbar, Frame, Label, Style, Button
 from PIL import Image, ImageTk
 import os
 import re
+import pydicom
+import numpy as np
 
 from SAM_finetune.utils.logger_func import setup_logger
 
@@ -29,7 +31,7 @@ class ThumbnailGallery:
             font=("Helvetica", 12, "bold"),
             bootstyle="inverse-dark"
         )
-        self.patient_label.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
+        self.patient_label.pack(side=tk.TOP, fill=tk.X, pady=3, padx=5)
         
         # Create a canvas with scrollbar for patients
         self.patient_canvas = Canvas(self.sidebar_frame, width=150)
@@ -63,7 +65,7 @@ class ThumbnailGallery:
         """Create the top gallery after control_frame is available"""
         # Create the top image gallery
         self.top_gallery_frame = Frame(control_frame, bootstyle="dark")
-        self.top_gallery_frame.pack(side=tk.TOP, fill=tk.X, pady=10, padx=10)
+        self.top_gallery_frame.pack(side=tk.TOP, fill=tk.X, pady=3, padx=10)
         
         # Label for top gallery
         self.gallery_label = Label(
@@ -203,7 +205,10 @@ class ThumbnailGallery:
                 thumb_frame.pack_propagate(False)
                 
                 # Open and resize the image
-                img = Image.open(image_path)
+                if image_path.endswith('.dcm') or image_path.endswith('.dicom'):
+                    img = self.load_dicom_image(image_path)
+                else:
+                    img = Image.open(image_path)
                 img.thumbnail((90, 90))  # Small thumbnail
                 img_tk = ImageTk.PhotoImage(img)
                 self.thumbnail_refs.append(img_tk)
@@ -354,3 +359,13 @@ class ThumbnailGallery:
         elif event.num == 5 or event.delta < 0:
             # Scroll right
             self.top_canvas.xview_scroll(1, "units")
+            
+    def load_dicom_image(self, image_path):
+        """Load a DICOM image from path into the canvas"""
+        try:
+            dicom_file = pydicom.dcmread(image_path)
+            pixels = dicom_file.pixel_array
+            image = Image.fromarray(pixels).convert('RGB')
+            return image
+        except Exception as e:
+            logger.error(f"Error loading DICOM image: {e}")

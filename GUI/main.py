@@ -9,6 +9,8 @@ from datetime import datetime
 import time
 from PIL import Image, ImageTk
 from ttkbootstrap.tooltip import ToolTip
+import pydicom
+from pydicom.errors import InvalidDicomError
 
 from model_handler import ModelHandler
 from canvas_view import CanvasView
@@ -41,6 +43,7 @@ class SAMGUI:
         self.bbox_start_y = None
         self.current_mask = None
         self.pixel_mass_factor = 1.0
+        self.dicom_metadata = {}
         
         # UI state variables
         self.bbox_enabled = tk.BooleanVar(value=True)
@@ -302,7 +305,9 @@ class SAMGUI:
     def load_images(self):
         """Allow selecting multiple images and store them for navigation"""
         image_paths = filedialog.askopenfilenames(
-            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp")]
+            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp"),
+                       ("DICOM files", "*.dcm *.dicom"),
+                       ("All files", "*.*")]
         )
         
         if not image_paths:
@@ -322,7 +327,15 @@ class SAMGUI:
         
         # Load the selected image
         self.image_path = image_path
-        self.canvas_view.load_image(image_path)
+        dicom_data = self.canvas_view.load_image(image_path)
+        
+        if dicom_data:
+            self.dicom_metadata = self.extract_dicom_metadata(dicom_data)
+            self.update_pixel_mass_factor_from_dicom()
+        else:
+            self.dicom_metadata = {}
+            self.pixel_mass_factor = 1.0 
+            logger.info("Loaded a non-DICOM image or DICOM metadata not fully available for mass calculation. Defaulting pixel_mass_factor to 1.0.")    
         
         # Reset view when changing images
         self.reset_zoom()
@@ -901,6 +914,67 @@ class SAMGUI:
         self.gamma_value.set(1.0)
         self.update_gamma()
 
+    def extract_dicom_metadata(self, dicom_data):
+        """Extract relevant metadata from a DICOM dataset."""
+        metadata = {
+            'patient_id': str(dicom_data.get('PatientID', 'N/A')),
+            'study_date': str(dicom_data.get('StudyDate', 'N/A')),
+            'modality': str(dicom_data.get('Modality', 'N/A')),
+            'pixel_spacing': None,
+            'slice_thickness': None,
+            'window_center': 'N/A',
+            'window_width': 'N/A',
+            # Add more tags as needed: e.g., dicom_data.get('Manufacturer', 'N/A')
+        }
+        if hasattr(dicom_data, 'PixelSpacing') and dicom_data.PixelSpacing:
+            try:
+                metadata['pixel_spacing'] = [float(x) for x in dicom_data.PixelSpacing]
+            except TypeError:
+                metadata['pixel_spacing'] = [float(dicom_data.PixelSpacing)]
+
+
+        if hasattr(dicom_data, 'SliceThickness') and dicom_data.SliceThickness is not None:
+            try:
+                metadata['slice_thickness'] = float(dicom_data.SliceThickness)
+            except (TypeError, ValueError):
+                metadata['slice_thickness'] = 'N/A' # Or handle appropriately
+
+
+        wc = dicom_data.get('WindowCenter', None)
+        ww = dicom_data.get('WindowWidth', None)
+
+        if wc is not None:
+            try:
+                metadata['window_center'] = [float(x) for x in wc] if isinstance(wc, pydicom.multival.MultiValue) else float(wc)
+            except (TypeError, ValueError):
+                 metadata['window_center'] = 'N/A'
+        
+        if ww is not None:
+            try:
+                metadata['window_width'] = [float(x) for x in ww] if isinstance(ww, pydicom.multival.MultiValue) else float(ww)
+            except (TypeError, ValueError):
+                metadata['window_width'] = 'N/A'
+            
+        return metadata
+
+    def update_pixel_mass_factor_from_dicom(self):
+        """Update pixel mass factor based on DICOM metadata"""
+        self.pixel_mass_factor = 1.0
+        raw_pixel_spacing = self.dicom_metadata.get('pixel_spacing')
+        raw_slice_thickness = self.dicom_metadata.get('slice_thickness')
+        ps_x, ps_y, st = None, None, None
+        try:
+            ps_x, ps_y = float(raw_pixel_spacing[0]), float(raw_pixel_spacing[1])
+            st = float(raw_slice_thickness)
+        except (TypeError, ValueError):
+            logger.warning("Invalid DICOM metadata for pixel spacing or slice thickness. Using default values.")
+            return
+        
+        # Calculate the pixel mass factor based on the pixel spacing and slice thickness
+        self.pixel_mass_factor = (ps_x * ps_y) / (st ** 2)
+        logger.info(f"Updated pixel mass factor to {self.pixel_mass_factor} based on DICOM metadata.")
+            
+            
 
 if __name__ == "__main__":
     model_path = "checkpoints/best_model.pth"
