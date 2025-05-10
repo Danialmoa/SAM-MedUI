@@ -56,11 +56,26 @@ class CanvasView:
         original_img = Image.open(image_path).convert('RGB')
         self.original_image = np.array(original_img)
          
-        # Resize for display while maintaining aspect ratio
-        h, w = self.original_image.shape[:2]
-        max_size = 640
-        scale = min(max_size / h, max_size / w)
-        new_h, new_w = int(h * scale), int(w * scale)
+        h_orig, w_orig = self.original_image.shape[:2]
+
+        # Get current canvas dimensions.
+        canvas_w = self.canvas.winfo_width()
+        canvas_h = self.canvas.winfo_height()
+        print(f"Canvas dimensions: {canvas_w}x{canvas_h}")
+        scale_factor = 1.0
+
+        # Calculate scale factor to fit original image into canvas dimensions
+        scale_factor_w = canvas_w / w_orig
+        scale_factor_h = canvas_h / h_orig
+        scale_factor = min(scale_factor_w, scale_factor_h)
+
+        # Calculate new dimensions
+        new_w = int(w_orig * scale_factor)
+        new_h = int(h_orig * scale_factor)
+
+        # Ensure dimensions are at least 1x1 to avoid errors with cv2.resize
+        new_w = max(1, new_w)
+        new_h = max(1, new_h)
         
         # Resize image for display
         self.display_image = cv2.resize(self.original_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
@@ -108,9 +123,6 @@ class CanvasView:
         # Convert to PIL Image and then to PhotoImage for tkinter
         self.image_tk = ImageTk.PhotoImage(Image.fromarray(self.displayed_image))
         
-        # DON'T explicitly set canvas size - let it be managed by its parent container
-        # self.canvas.config(width=self.displayed_image.shape[1], height=self.displayed_image.shape[0])
-        
         # Display image on canvas
         if self.canvas_image:
             self.canvas.itemconfig(self.canvas_image, image=self.image_tk)
@@ -121,8 +133,6 @@ class CanvasView:
         
         # Draw overlays
         self.update_stats_overlay()
-        # Remove or comment out the next line to prevent canvas overlay from competing with status bar
-        # self.update_zoom_display()
     
     def update_stats_overlay(self, pixel_mass_factor=1.0):
         """Update the stats overlay with mask information"""

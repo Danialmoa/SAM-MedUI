@@ -26,7 +26,7 @@ class SAMGUI:
         # Configure root window
         self.root = root
         self.root.title("SAM Segmentation Tool")
-        self.root.geometry("1280x1000")
+        self.root.geometry("800x900")
         
         # Initialize components
         self.model_handler = None #ModelHandler(model_path)
@@ -73,7 +73,7 @@ class SAMGUI:
         
         # Control frame (top of right side) - make it taller for the image gallery
         self.control_frame = Frame(self.right_frame, bootstyle="dark", height=220)
-        self.control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+        self.control_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         
         # Create top toolbar with navigation and actions FIRST (above images)
         self.create_toolbar()
@@ -90,7 +90,7 @@ class SAMGUI:
         
         # Canvas frame (bottom of right side)
         self.canvas_frame = Frame(self.right_frame, bootstyle="dark")
-        self.canvas_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.canvas_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Create canvas view
         self.canvas_view = CanvasView(
@@ -150,7 +150,7 @@ class SAMGUI:
         # Main controls frame - use standard LabelFrame (no rounded version available)
         
         toolbar = LabelFrame(self.control_frame, text="Controls", bootstyle="white")
-        toolbar.pack(fill=tk.X, expand=True, padx=10, pady=5)
+        toolbar.pack(fill=tk.X, expand=True, padx=5, pady=5)
         
         # Create two separate frames for the rows
         top_row = Frame(toolbar)
@@ -166,7 +166,7 @@ class SAMGUI:
             command=self.load_images,
             bootstyle="primary"
         )
-        self.load_button.pack(side=tk.LEFT, padx=8, pady=5)
+        self.load_button.pack(side=tk.LEFT, padx=5, pady=5)
         
         # Input Mode section
         self.bbox_check = Checkbutton(
@@ -197,7 +197,7 @@ class SAMGUI:
             command=self.clear_prompts,
             bootstyle="secondary"
         )
-        self.clear_button.pack(side=tk.LEFT, padx=3)
+        self.clear_button.pack(side=tk.LEFT, padx=5)
 
         self.clear_mask_button = Button(
             top_row, 
@@ -205,7 +205,7 @@ class SAMGUI:
             command=self.clear_mask,
             bootstyle="warning"
         )
-        self.clear_mask_button.pack(side=tk.LEFT, padx=3)
+        self.clear_mask_button.pack(side=tk.LEFT, padx=5)
         
         # BOTTOM ROW - Segmentation and saving controls
         self.segment_button = Button(
@@ -214,7 +214,7 @@ class SAMGUI:
             command=self.generate_segmentation,
             bootstyle="success"
         )
-        self.segment_button.pack(side=tk.LEFT, padx=8, pady=5)
+        self.segment_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.save_button = Button(
             bottom_row, 
@@ -222,7 +222,7 @@ class SAMGUI:
             command=self.save_mask,
             bootstyle="info"
         )
-        self.save_button.pack(side=tk.LEFT, padx=3)
+        self.save_button.pack(side=tk.LEFT, padx=5)
 
         self.save_all_button = Button(
             bottom_row, 
@@ -237,22 +237,22 @@ class SAMGUI:
         
         # Add gamma correction controls to bottom row
         gamma_frame = Frame(bottom_row)
-        gamma_frame.pack(side=tk.LEFT, padx=5, fill=tk.Y)
+        gamma_frame.pack(side=tk.LEFT, padx=3, fill=tk.Y)
         
-        Label(gamma_frame, text="Gamma:", bootstyle="white").pack(side=tk.LEFT, padx=2)
+        Label(gamma_frame, text="Gamma:", bootstyle="white").pack(side=tk.LEFT, padx=3)
         
         gamma_slider = Scale(
             gamma_frame,
             variable=self.gamma_value,
             command=self.update_gamma,
             bootstyle="success",
-            from_=0.8,
-            to=1.2,
+            from_=0.5,
+            to=1.5,
             orient=tk.HORIZONTAL,
             length=120,
             value=1.0
         )
-        gamma_slider.pack(side=tk.LEFT, padx=2)
+        gamma_slider.pack(side=tk.LEFT, padx=3)
         
         # Reset gamma button
         reset_gamma_btn = Button(
@@ -262,7 +262,7 @@ class SAMGUI:
             bootstyle="secondary",
             width=5
         )
-        reset_gamma_btn.pack(side=tk.LEFT, padx=2)
+        reset_gamma_btn.pack(side=tk.LEFT, padx=3)
         
         # Add tooltips to each button
         ToolTip(self.load_button, text="Load medical images for segmentation")
