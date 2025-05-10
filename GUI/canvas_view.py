@@ -84,7 +84,9 @@ class CanvasView:
         # Resize image for display
         self.display_image = cv2.resize(self.original_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
         self.displayed_image = self.display_image.copy()
-        
+        print("display_image shape: ", self.display_image.shape)
+        print("displayed_image shape: ", self.displayed_image.shape)
+        print("original_image shape: ", self.original_image.shape)
         # Reset view parameters
         self.reset_view()
         
