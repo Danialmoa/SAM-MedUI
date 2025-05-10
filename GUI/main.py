@@ -21,7 +21,7 @@ logger = setup_logger()
 
 
 class SAMGUI:
-    def __init__(self, root, model_path):
+    def __init__(self, root, config):
         # Set up ttk theme
         self.style = Style(theme="darkly")
         
@@ -31,7 +31,7 @@ class SAMGUI:
         self.root.geometry("800x900")
         
         # Initialize components
-        self.model_handler = None #ModelHandler(model_path)
+        self.model_handler = ModelHandler(config)
         
         # Initialize variables
         self.image_path = None
@@ -651,7 +651,7 @@ class SAMGUI:
         
         # Use the model handler to generate the mask
         self.current_mask = self.model_handler.generate_mask(
-            self.canvas_view.original_image,
+            self.canvas_view.display_image,
             bbox=self.bbox,
             points=self.point_coords,
             point_labels=self.point_labels
@@ -977,12 +977,13 @@ class SAMGUI:
             
 
 if __name__ == "__main__":
-    model_path = "checkpoints/best_model.pth"
-    # if not os.path.exists(model_path):
-    #     logger.error(f"Error: Model checkpoint not found at {model_path}")
-    #     logger.error("Please ensure 'best_model.pth' is in the same directory or provide the correct path.")
-    #     print("Model checkpoint not found. Please ensure 'best_model.pth' is available.")
-    
+    config = {
+        'model_type': 'vit_b',
+        'sam_path': 'checkpoints/sam_vit_b_01ec64.pth',
+        'checkpoint_path': 'checkpoints/best_model.pth',
+        'device': 'mps'
+    }
+
     root = Window(themename="darkly")
-    app = SAMGUI(root, model_path)
+    app = SAMGUI(root, config)
     root.mainloop()
