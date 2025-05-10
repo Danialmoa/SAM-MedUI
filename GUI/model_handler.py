@@ -6,26 +6,19 @@ import os
 from SAM_finetune.models.custom_dataset import PercentileNormalize
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.utils.logger_func import setup_logger
+from SAM_finetune.utils.z_score_norm import PercentileNormalize
 
 logger = setup_logger()
 
 class ModelHandler:
     """Handles model loading and segmentation operations"""
-    def __init__(self, model_path, device=None):
-        if device is None:
-            self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        else:
-            self.device = device
-        self.model = self.load_model(model_path).to(self.device)
-        self.model.eval()
-    
-    def load_model(self, model_path):
-        sam = SAMModel(model_type="vit_b", sam_path=None, checkpoint_path=model_path, device=self.device)
-        return sam
-    
+    def __init__(self, config):
+        self.model = SAMModel(config)
+        self.device = config['device']
+        
     def preprocess_image(self, image):
         preprocessor = PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5)
-        processed_img = preprocessor(image=image)['image']
+        processed_img = preprocessor(image=image)
         processed_img = cv2.resize(processed_img, (1024, 1024))
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
@@ -33,7 +26,6 @@ class ModelHandler:
     def generate_mask(self, image, bbox=None, points=None, point_labels=None):
         logger.info("Preparing image for segmentation")
         image_tensor = self.preprocess_image(image)
-        
         # Scale the bounding box
         bbox_tensor = None
         if bbox is not None:
@@ -91,7 +83,6 @@ class ModelHandler:
             logger.error("No valid prompts available for segmentation")
             return None
         
-        logger.info("Running segmentation model")
         with torch.no_grad():
             torch.set_num_threads(max(4, os.cpu_count() - 1))
             pred_mask = self.model(
@@ -102,6 +93,7 @@ class ModelHandler:
             )
         
         pred_mask = pred_mask.cpu().numpy().squeeze() > 0.5
+
         return pred_mask.astype(np.uint8)
 
 
