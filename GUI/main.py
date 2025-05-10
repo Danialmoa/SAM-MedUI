@@ -384,12 +384,14 @@ class SAMGUI:
         """Restore saved mask and prompts for the current image"""
         # Clear current state
         self.current_mask = None
+        self.canvas_view.current_mask = None
         self.bbox = None
         self.point_coords = []
         self.point_labels = []
-        
+
         # Restore mask if available
         if self.image_path in self.saved_masks:
+            
             self.current_mask = self.saved_masks[self.image_path].copy()
             self.canvas_view.current_mask = self.current_mask.copy()
         
