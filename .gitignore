@@ -3,3 +3,5 @@
 logs/*
 SAM_finetune/checkpoints/*
 SAMUI.egg-info/*    
+GUI/__pycache__/*
+GUI/GUI.egg-info/*
