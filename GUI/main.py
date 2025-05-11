@@ -657,19 +657,66 @@ class SAMGUI:
         self.update_status("Generating segmentation...")
         
         # Use the model handler to generate the mask
-        self.current_mask = self.model_handler.generate_mask(
-            self.canvas_view.display_image,
-            bbox=self.bbox,
-            points=self.point_coords,
-            point_labels=self.point_labels
+        cropped_image, resize_factor = self._crop_image_for_segmentation(self.canvas_view.display_image)
+        
+        # Adjust prompts for the cropped image
+        cropped_bbox = None
+        cropped_points = []
+        cropped_labels = []
+        
+        # Original image dimensions
+        orig_h, orig_w = self.canvas_view.display_image.shape[:2]
+        # Cropped image dimensions
+        crop_size = cropped_image.shape[0]  # Square image
+        
+        # Calculate the offset from original to cropped coordinates
+        x_offset = (orig_w - crop_size) // 2
+        y_offset = (orig_h - crop_size) // 2
+        
+        # Adjust bounding box for cropped image
+        if self.bbox:
+            x1, y1, x2, y2 = self.bbox
+            cropped_bbox = [
+                max(0, min(crop_size, x1 - x_offset)),
+                max(0, min(crop_size, y1 - y_offset)),
+                max(0, min(crop_size, x2 - x_offset)),
+                max(0, min(crop_size, y2 - y_offset))
+            ]
+        
+        # Adjust points for cropped image
+        for i, (x, y) in enumerate(self.point_coords):
+            # Convert to cropped coordinates
+            cx = x - x_offset
+            cy = y - y_offset
+            
+            # Only include points that fall within the cropped area
+            if 0 <= cx < crop_size and 0 <= cy < crop_size:
+                cropped_points.append([cx, cy])
+                cropped_labels.append(self.point_labels[i])
+        
+        # Generate mask on the cropped image
+        cropped_mask = self.model_handler.generate_mask(
+            cropped_image,
+            bbox=cropped_bbox,
+            points=cropped_points,
+            point_labels=cropped_labels
         )
         
-        if self.current_mask is None:
+        cropped_mask = cv2.resize(cropped_mask, (crop_size, crop_size))
+        
+        if cropped_mask is None:
             self.update_status("Segmentation failed")
             return
         
-        # Update canvas view with the new mask
-        self.canvas_view.current_mask = self.current_mask
+        # Convert cropped mask back to original image size
+        full_mask = np.zeros((orig_h, orig_w), dtype=np.float32)
+        
+        # Place the cropped mask in the center of the full mask
+        full_mask[y_offset:y_offset+crop_size, x_offset:x_offset+crop_size] = cropped_mask
+        
+        self.current_mask = full_mask
+        self.canvas_view.current_mask = full_mask
+        self.canvas_view.current_resize_factor = resize_factor
         
         # Save the mask for this image
         self.saved_masks[self.image_path] = self.current_mask.copy()
@@ -680,13 +727,22 @@ class SAMGUI:
         }
         
         # Calculate and display segment stats
-        pixel_count, mass = self.canvas_view.update_stats_overlay()
+        pixel_count, mass = self.canvas_view.update_stats_overlay(resize_factor)
         
         segmentation_time = time.time() - segmentation_start_time
         logger.info(f"Segmentation complete. Time taken: {segmentation_time:.2f} seconds")
         self.update_status(f"Segmentation complete: {pixel_count} pixels, {mass:.2f} mass")
         
         self.redraw_canvas()
+    
+    def _crop_image_for_segmentation(self, segmentation_image):
+        """Crop the image minimum dimension"""
+        min_dim = min(segmentation_image.shape[0], segmentation_image.shape[1])
+        center = np.array(segmentation_image.shape) // 2
+        cropped_image = segmentation_image[center[0]-min_dim//2:center[0]+min_dim//2, center[1]-min_dim//2:center[1]+min_dim//2]
+
+        resize_factor = 1024.0 / min_dim
+        return cropped_image, resize_factor
     
     def clear_prompts(self):
         """Clear all prompts (bounding box and points)"""

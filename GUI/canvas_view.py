@@ -56,6 +56,7 @@ class CanvasView:
         self.nifti_data = None
         self.current_slice_idx = 0
         self.total_slices = 0
+        self.current_resize_factor = 1.0
 
     def load_image(self, image_path):
         """Load an image from path into the canvas"""
@@ -152,7 +153,7 @@ class CanvasView:
         # Draw overlays
         self.update_stats_overlay()
     
-    def update_stats_overlay(self):
+    def update_stats_overlay(self, resize_factor=None):
         """Update the stats overlay with mask information"""
         # Remove previous stats text if it exists
         if self.stats_text_id:
@@ -164,12 +165,16 @@ class CanvasView:
         if self.current_mask is None:
             return None, None
         
+        if resize_factor is None:
+            resize_factor = self.current_resize_factor
+        
         # Calculate stats
-        pixel_count = np.sum(self.current_mask)
+        mask = np.where(self.current_mask > 0, 1, 0)
+        pixel_count = np.sum(mask) / resize_factor
         mass = pixel_count * self.pixel_mass_factor
         
         # Create text for overlay
-        stats_text = f"Pixels: {pixel_count:,}\nMass: {mass:.2f}"
+        stats_text = f"Pixels: {pixel_count:.0f}\nMass: {mass:.2f}"
         
         # Add text overlay to canvas
         self.stats_text_id = self.canvas.create_text(
