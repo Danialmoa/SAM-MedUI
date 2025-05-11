@@ -106,6 +106,10 @@ class ThumbnailGallery:
         # Get base filename without path and extension
         base_name = os.path.basename(filename)
         
+        parts = base_name.split('_')
+        if len(parts) >= 6:  # Need at least 6 parts (patient ID + 5 metadata parts)
+            return '_'.join(parts[:-5])
+        
         # First try the original underscore pattern
         match = re.match(r'^([^_]+)_', base_name)
         if match:
