@@ -69,7 +69,8 @@ class SAMGUI:
         self.main_pane.pack(fill=tk.BOTH, expand=True)
         
         # Create the sidebar for thumbnails
-        self.sidebar_frame = Frame(self.main_pane, bootstyle="dark")
+        self.sidebar_frame = Frame(self.main_pane, bootstyle="dark", width=150)
+        self.sidebar_frame.pack_propagate(False) 
         
         # Right side content
         self.right_frame = Frame(self.main_pane, bootstyle="dark")
