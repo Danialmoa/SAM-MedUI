@@ -990,7 +990,8 @@ class SAMGUI:
             return
         
         # Calculate the pixel mass factor based on the pixel spacing and slice thickness
-        self.canvas_view.pixel_mass_factor = (ps_x * ps_y) / (st ** 2)
+        self.canvas_view.pixel_mass_factor = (ps_x * ps_y * st) / 1000 * 1.05 # 1.05 is a density factor
+        
         logger.info(f"Updated pixel mass factor to {self.canvas_view.pixel_mass_factor} based on metadata.")
             
     def extract_nifti_metadata(self, nifti_data):
