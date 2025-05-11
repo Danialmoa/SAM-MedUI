@@ -675,7 +675,7 @@ class SAMGUI:
         }
         
         # Calculate and display segment stats
-        pixel_count, mass = self.canvas_view.update_stats_overlay(self.pixel_mass_factor)
+        pixel_count, mass = self.canvas_view.update_stats_overlay()
         
         segmentation_time = time.time() - segmentation_start_time
         logger.info(f"Segmentation complete. Time taken: {segmentation_time:.2f} seconds")
@@ -787,10 +787,10 @@ class SAMGUI:
                 
                 # Add stats
                 pixel_count = np.sum(self.current_mask)
-                mass = pixel_count * self.pixel_mass_factor
+                mass = pixel_count * self.canvas_view.pixel_mass_factor
                 json_data["mask"]["stats"] = {
                     "pixel_count": int(pixel_count),
-                    "mass_factor": float(self.pixel_mass_factor),
+                    "mass_factor": float(self.canvas_view.pixel_mass_factor),
                     "calculated_mass": float(mass)
                 }
                 
@@ -868,10 +868,10 @@ class SAMGUI:
                     
                     # Add stats
                     pixel_count = np.sum(mask)
-                    mass = pixel_count * self.pixel_mass_factor
+                    mass = pixel_count * self.canvas_view.pixel_mass_factor
                     json_data["mask"]["stats"] = {
                         "pixel_count": int(pixel_count),
-                        "mass_factor": float(self.pixel_mass_factor),
+                        "mass_factor": float(self.canvas_view.pixel_mass_factor),
                         "calculated_mass": float(mass)
                     }
                     
@@ -961,7 +961,7 @@ class SAMGUI:
 
     def update_pixel_mass_factor_from_dicom(self):
         """Update pixel mass factor based on DICOM metadata"""
-        self.pixel_mass_factor = 1.0
+        self.canvas_view.pixel_mass_factor = 1.0
         raw_pixel_spacing = self.dicom_metadata.get('pixel_spacing')
         raw_slice_thickness = self.dicom_metadata.get('slice_thickness')
         ps_x, ps_y, st = None, None, None
@@ -973,8 +973,8 @@ class SAMGUI:
             return
         
         # Calculate the pixel mass factor based on the pixel spacing and slice thickness
-        self.pixel_mass_factor = (ps_x * ps_y) / (st ** 2)
-        logger.info(f"Updated pixel mass factor to {self.pixel_mass_factor} based on DICOM metadata.")
+        self.canvas_view.pixel_mass_factor = (ps_x * ps_y) / (st ** 2)
+        logger.info(f"Updated pixel mass factor to {self.canvas_view.pixel_mass_factor} based on DICOM metadata.")
             
             
 

@@ -18,7 +18,7 @@ class CanvasView:
         self.parent = parent
         self.canvas = Canvas(canvas_frame)
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        
+    
         # Initialize image related variables
         self.image_path = None
         self.original_image = None
@@ -27,6 +27,7 @@ class CanvasView:
         self.current_mask = None
         self.image_tk = None
         self.canvas_image = None
+        self.pixel_mass_factor = 1.0 
         
         # Initialize zoom related variables
         self.zoom_level = 1.0
@@ -138,7 +139,7 @@ class CanvasView:
         # Draw overlays
         self.update_stats_overlay()
     
-    def update_stats_overlay(self, pixel_mass_factor=1.0):
+    def update_stats_overlay(self):
         """Update the stats overlay with mask information"""
         # Remove previous stats text if it exists
         if self.stats_text_id:
@@ -152,7 +153,7 @@ class CanvasView:
         
         # Calculate stats
         pixel_count = np.sum(self.current_mask)
-        mass = pixel_count * pixel_mass_factor
+        mass = pixel_count * self.pixel_mass_factor
         
         # Create text for overlay
         stats_text = f"Pixels: {pixel_count:,}\nMass: {mass:.2f}"
