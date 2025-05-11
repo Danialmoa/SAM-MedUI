@@ -7,7 +7,7 @@ import os
 import logging
 import time
 import pydicom
-
+import nibabel as nib
 from SAM_finetune.utils.logger_func import setup_logger
 
 logger = setup_logger()
@@ -51,15 +51,28 @@ class CanvasView:
         self.canvas.bind("<Control-MouseWheel>", on_zoom)
         self.canvas.bind("<Control-Button-4>", on_zoom)
         self.canvas.bind("<Control-Button-5>", on_zoom)
+        
+        # NIfTI specific variables
+        self.nifti_data = None
+        self.current_slice_idx = 0
+        self.total_slices = 0
 
     def load_image(self, image_path):
         """Load an image from path into the canvas"""
-        if image_path.endswith('.dcm') or image_path.endswith('.dicom'):
-            self.original_image, dicom_data = self.load_dicom_image(image_path)
+        if '#slice=' in image_path and (image_path.split('#')[0].endswith('.nii') or 
+                                   image_path.split('#')[0].endswith('.nii.gz')):
+            # Extract the real path and slice index
+            real_path, slice_info = image_path.split('#', 1)
+            slice_idx = int(slice_info.split('=')[1])
+            self.original_image, img_data = self.load_nifti_image(real_path, slice_idx)
+        
+        elif image_path.endswith('.dcm') or image_path.endswith('.dicom'):
+            self.original_image, img_data = self.load_dicom_image(image_path)
+            
         else:
             original_img = Image.open(image_path).convert('RGB')
             self.original_image = np.array(original_img)
-            dicom_data = None
+            img_data = None
         
         h_orig, w_orig = self.original_image.shape[:2]
 
@@ -92,7 +105,7 @@ class CanvasView:
         # Update canvas
         self.update_canvas()
         
-        return dicom_data
+        return img_data
     
     def reset_view(self):
         """Reset zoom and pan settings"""
@@ -378,4 +391,29 @@ class CanvasView:
             return image_array, dicom_file
         except Exception as e:
             logger.error(f"Error loading DICOM image: {e}")
+            return None, None
+        
+    def load_nifti_image(self, image_path, slice_idx=None):
+        """Load a NIfTI image from path into the canvas"""
+        try:
+            nifti_img = nib.load(image_path)
+            pixel_array = nifti_img.get_fdata()
+            
+            self.nifti_data = pixel_array
+            self.total_slices = pixel_array.shape[2]
+            
+            if slice_idx is None:
+                self.current_slice_idx =0
+            else:
+                self.current_slice_idx = slice_idx
+                
+            slice_data = pixel_array[:, :, slice_idx]
+            slice_data = ((slice_data - slice_data.min()) / 
+                        (slice_data.max() - slice_data.min()) * 255).astype(np.uint8)
+            image = Image.fromarray(slice_data).convert('RGB')
+            image_array = np.array(image)
+            
+            return image_array, nifti_img
+        except Exception as e:
+            logger.error(f"Error loading NIfTI image: {e}")
             return None, None

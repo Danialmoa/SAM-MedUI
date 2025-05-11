@@ -43,7 +43,7 @@ class SAMGUI:
         self.bbox_start_y = None
         self.current_mask = None
         self.pixel_mass_factor = 1.0
-        self.dicom_metadata = {}
+        self.img_metadata = {}
         
         # UI state variables
         self.bbox_enabled = tk.BooleanVar(value=True)
@@ -307,6 +307,7 @@ class SAMGUI:
         image_paths = filedialog.askopenfilenames(
             filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp"),
                        ("DICOM files", "*.dcm *.dicom"),
+                       ("NIfTI files", "*.nii"),
                        ("All files", "*.*")]
         )
         
@@ -327,13 +328,17 @@ class SAMGUI:
         
         # Load the selected image
         self.image_path = image_path
-        dicom_data = self.canvas_view.load_image(image_path)
+        self.original_image_path = image_path.split('#')[0]
+        img_data = self.canvas_view.load_image(image_path)
         
-        if dicom_data:
-            self.dicom_metadata = self.extract_dicom_metadata(dicom_data)
-            self.update_pixel_mass_factor_from_dicom()
+        if img_data:
+            if self.original_image_path.endswith('.nii') or self.original_image_path.endswith('.nii.gz'):
+                self.img_metadata = self.extract_nifti_metadata(img_data)
+            else:
+                self.img_metadata = self.extract_dicom_metadata(img_data)
+            self.update_pixel_mass_factor(self.img_metadata['pixel_spacing'], self.img_metadata['slice_thickness'])
         else:
-            self.dicom_metadata = {}
+            self.img_metadata = {}
             self.pixel_mass_factor = 1.0 
             logger.info("Loaded a non-DICOM image or DICOM metadata not fully available for mass calculation. Defaulting pixel_mass_factor to 1.0.")    
         
@@ -733,6 +738,11 @@ class SAMGUI:
         # Generate mask filename based on original image name
         image_name = os.path.basename(self.image_path)
         base_name, ext = os.path.splitext(image_name)
+        
+        if '#slice=' in self.image_path:
+            slice_idx = self.image_path.split('#slice=')[1]
+            base_name = f"{base_name}_slice{slice_idx}"
+        
         mask_path = os.path.join(masks_dir, f"{base_name}_mask.png")
         prompt_path = os.path.join(prompts_dir, f"{base_name}_prompt.json")
         
@@ -823,8 +833,14 @@ class SAMGUI:
         saved_count = 0
         for img_path, mask in self.saved_masks.items():
             # Generate filename based on original image name
-            image_name = os.path.basename(img_path)
+            original_path = img_path.split('#')[0] if '#' in img_path else img_path
+            image_name = os.path.basename(original_path)
             base_name, ext = os.path.splitext(image_name)
+            
+            if '#slice=' in img_path:
+                slice_idx = img_path.split('#slice=')[1]
+                base_name = f"{base_name}_slice{slice_idx}"
+            
             mask_path = os.path.join(masks_dir, f"{base_name}_mask.png")
             prompt_path = os.path.join(prompts_dir, f"{base_name}_prompt.json")
             
@@ -956,27 +972,38 @@ class SAMGUI:
                 metadata['window_width'] = [float(x) for x in ww] if isinstance(ww, pydicom.multival.MultiValue) else float(ww)
             except (TypeError, ValueError):
                 metadata['window_width'] = 'N/A'
+                
+        metadata['pixel_spacing'] = [float(x) for x in dicom_data.PixelSpacing]
+        metadata['slice_thickness'] = float(dicom_data.SliceThickness)
             
         return metadata
 
-    def update_pixel_mass_factor_from_dicom(self):
-        """Update pixel mass factor based on DICOM metadata"""
+    def update_pixel_mass_factor(self, pixel_spacing, slice_thickness):
+        """Update pixel mass factor based on metadata"""
         self.canvas_view.pixel_mass_factor = 1.0
-        raw_pixel_spacing = self.dicom_metadata.get('pixel_spacing')
-        raw_slice_thickness = self.dicom_metadata.get('slice_thickness')
         ps_x, ps_y, st = None, None, None
         try:
-            ps_x, ps_y = float(raw_pixel_spacing[0]), float(raw_pixel_spacing[1])
-            st = float(raw_slice_thickness)
+            ps_x, ps_y = float(pixel_spacing[0]), float(pixel_spacing[1])
+            st = float(slice_thickness)
         except (TypeError, ValueError):
-            logger.warning("Invalid DICOM metadata for pixel spacing or slice thickness. Using default values.")
+            logger.warning("Invalid metadata for pixel spacing or slice thickness. Using default values.")
             return
         
         # Calculate the pixel mass factor based on the pixel spacing and slice thickness
         self.canvas_view.pixel_mass_factor = (ps_x * ps_y) / (st ** 2)
-        logger.info(f"Updated pixel mass factor to {self.canvas_view.pixel_mass_factor} based on DICOM metadata.")
+        logger.info(f"Updated pixel mass factor to {self.canvas_view.pixel_mass_factor} based on metadata.")
             
-            
+    def extract_nifti_metadata(self, nifti_data):
+        """Extract relevant metadata from a NIfTI dataset."""
+        metadata = {
+            'patient_id': str(nifti_data.header.get('PatientID', 'N/A')),
+            'study_date': str(nifti_data.header.get('StudyDate', 'N/A')),
+            'modality': str(nifti_data.header.get('Modality', 'N/A')),
+        }
+        pixel_dims = nifti_data.header['pixdim'][1:4]
+        metadata['pixel_spacing'] = [float(pixel_dims[0]), float(pixel_dims[1])]
+        metadata['slice_thickness'] = float(pixel_dims[2])
+        return metadata
 
 if __name__ == "__main__":
     config = {

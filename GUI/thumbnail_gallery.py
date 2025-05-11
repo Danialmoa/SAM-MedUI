@@ -5,7 +5,7 @@ import os
 import re
 import pydicom
 import numpy as np
-
+import nibabel as nib
 from SAM_finetune.utils.logger_func import setup_logger
 
 logger = setup_logger()
@@ -106,11 +106,14 @@ class ThumbnailGallery:
         # Get base filename without path and extension
         base_name = os.path.basename(filename)
         
+        # Need at least 6 parts (patient ID + 5 metadata parts)
         parts = base_name.split('_')
-        if len(parts) >= 6:  # Need at least 6 parts (patient ID + 5 metadata parts)
+        if len(parts) >= 6:  
             return '_'.join(parts[:-5])
+        elif len(parts) == 2:
+            return base_name.split('.')[0]
         
-        # First try the original underscore pattern
+        # a_1.jpg -> a
         match = re.match(r'^([^_]+)_', base_name)
         if match:
             return match.group(1)
@@ -133,17 +136,30 @@ class ThumbnailGallery:
         if not image_paths:
             return False
         
-        self.image_files = list(image_paths)
-        logger.info(f"Loaded {len(self.image_files)} images")
+        original_image_files = list(image_paths)
+        self.image_files = []
         
         # Group images by patient ID
         self.patient_images = {}
-        for image_path in self.image_files:
+        for image_path in original_image_files:
             patient_id = self._extract_patient_id(image_path)
             if patient_id:
                 if patient_id not in self.patient_images:
-                    self.patient_images[patient_id] = []
-                self.patient_images[patient_id].append(image_path)
+                    #check nifti & add slice index
+                    if image_path.endswith('.nii') or image_path.endswith('.nii.gz'):
+                        # Len images 
+                        slice_idx = self._len_nifti_images(image_path)
+                        self.patient_images[patient_id] = []
+                        for i in range(slice_idx):
+                            slice_path = image_path + f'#slice={i}'
+                            self.patient_images[patient_id].append(slice_path)
+                            self.image_files.append(slice_path)
+                    else:
+                        self.patient_images[patient_id] = [image_path]
+                        self.image_files.append(image_path)
+                else:
+                    self.patient_images[patient_id].append(image_path)
+                    self.image_files.append(image_path)
             else:
                 # If no patient ID could be extracted, use "Other" category
                 if "Other" not in self.patient_images:
@@ -200,6 +216,7 @@ class ThumbnailGallery:
         
         # Create thumbnails for patient images in top gallery
         for idx, image_path in enumerate(patient_images):
+            original_image_path = image_path.split('#')[0]
             try:
                 # Create frame for this thumbnail
                 thumb_frame = Frame(self.top_frame, 
@@ -209,8 +226,10 @@ class ThumbnailGallery:
                 thumb_frame.pack_propagate(False)
                 
                 # Open and resize the image
-                if image_path.endswith('.dcm') or image_path.endswith('.dicom'):
+                if original_image_path.endswith('.dcm') or original_image_path.endswith('.dicom'):
                     img = self.load_dicom_image(image_path)
+                elif original_image_path.endswith('.nii') or original_image_path.endswith('.nii.gz'):
+                    img = self.load_nifti_image(original_image_path)
                 else:
                     img = Image.open(image_path)
                 img.thumbnail((90, 90))  # Small thumbnail
@@ -373,3 +392,27 @@ class ThumbnailGallery:
             return image
         except Exception as e:
             logger.error(f"Error loading DICOM image: {e}")
+
+    def _len_nifti_images(self, image_path):
+        """Return the number of slices in a NIfTI image"""
+        nifti_file = nib.load(image_path)
+        return nifti_file.shape[2]
+
+    def load_nifti_image(self, image_path, slice_idx=None):
+        """Load a NIfTI image from path into the canvas"""
+        try:
+            nifti_file = nib.load(image_path)
+            image_data = nifti_file.get_fdata()
+            if slice_idx is None:
+                slice_idx = 0
+            slice_data = image_data[:, :, slice_idx]
+            
+            # Normalize the data to 0-255 range
+            slice_data = ((slice_data - slice_data.min()) / 
+                         (slice_data.max() - slice_data.min()) * 255).astype(np.uint8)
+            
+            # Create grayscale image
+            image = Image.fromarray(slice_data).convert('RGB')
+            return image
+        except Exception as e:
+            logger.error(f"Error loading NIfTI image: {e}")
