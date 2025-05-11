@@ -33,6 +33,7 @@ class PercentileNormalize(ImageOnlyTransform):
         img_clipped = np.clip(img, p_low, p_high)
         mean, std = np.mean(img_clipped), np.std(img_clipped)
         return (img_clipped - mean) / (std + 1e-8)
+
     
 class SAMDataset(torch.utils.data.Dataset):
     def __init__(
