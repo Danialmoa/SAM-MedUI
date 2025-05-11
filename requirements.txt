@@ -1,0 +1,11 @@
+albumentations==2.0.6
+numpy==2.2.5
+Pillow==11.2.1
+scipy==1.15.3
+segment_anything==1.0
+torch==2.7.0
+nibabel==5.3.2
+opencv_python==4.11.0.86
+pydicom==3.0.1
+ttkbootstrap==1.12.2
+
