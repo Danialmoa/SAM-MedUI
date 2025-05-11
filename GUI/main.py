@@ -1067,7 +1067,7 @@ if __name__ == "__main__":
         'model_type': 'vit_b',
         'sam_path': 'checkpoints/sam_vit_b_01ec64.pth',
         'checkpoint_path': 'checkpoints/best_model.pth',
-        'device': 'mps'
+        'device': 'cpu'
     }
 
     root = Window(themename="darkly")
