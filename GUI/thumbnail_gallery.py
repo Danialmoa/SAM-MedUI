@@ -388,6 +388,10 @@ class ThumbnailGallery:
         try:
             dicom_file = pydicom.dcmread(image_path)
             pixels = dicom_file.pixel_array
+            # Normalize the pixel values to 0-255
+            pixels = pixels - pixels.min()
+            pixels = pixels / pixels.max() * 255
+            pixels = pixels.astype(np.uint8)
             image = Image.fromarray(pixels).convert('RGB')
             return image
         except Exception as e:
