@@ -102,7 +102,7 @@ class ThumbnailGallery:
         self.top_canvas.bind("<Button-5>", self._on_top_mousewheel)
     
     def _extract_patient_id(self, filename):
-        """Extract patient ID from filename (e.g., 'a_1.jpg' -> 'a' or 'MR.1.3.12.2.1107.5.2.18.41662.2019120511303784390827973' -> 'MR.1.3.12.2.1107.5.2.18.41662')"""
+        """Extract patient ID from filename (e.g., 'a_1_1.jpg' -> 'a' or 'MR.1.3.12.2.1107.5.2.18.41662.2019120511303784390827973' -> 'MR.1.3.12.2.1107.5.2.18.41662')"""
         # Get base filename without path and extension
         base_name = os.path.basename(filename)
         
