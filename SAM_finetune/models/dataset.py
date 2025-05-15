@@ -58,8 +58,8 @@ class SAMDataset(torch.utils.data.Dataset):
         self.mask_paths: List[str] = []
         self._load_dataset()
         
-        if self.config.remove_empty_masks:
-            self._remove_empty_masks()
+        if self.config.remove_nonscar:
+            self._remove_nonscar()
         
     def _load_dataset(self):
         image_dir = os.path.join(self.config.dataset_path, 'images')
@@ -87,7 +87,7 @@ class SAMDataset(torch.utils.data.Dataset):
             
         print(f"Loaded {len(self.image_paths)} images and masks")
         
-    def _remove_empty_masks(self):
+    def _remove_nonscar(self):
         counter = 0
         for i, mask_path in enumerate(self.mask_paths):
             mask = Image.open(mask_path)
@@ -159,6 +159,5 @@ if __name__ == "__main__":
         sample_size=10
     )
     dataset = SAMDataset(config)
-    print(len(dataset))
     
     
