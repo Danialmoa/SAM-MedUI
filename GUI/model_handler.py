@@ -18,7 +18,7 @@ class ModelHandler:
         
     def preprocess_image(self, image):
         preprocessor = PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5)
-        processed_img = preprocessor(image=image)
+        processed_img = preprocessor(image)
         processed_img = cv2.resize(processed_img, (1024, 1024))
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
