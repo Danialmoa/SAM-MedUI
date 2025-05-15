@@ -13,8 +13,12 @@ class PercentileNormalize(ImageOnlyTransform):
         super().__init__(p=p)
         self.lower_percentile = lower_percentile
         self.upper_percentile = upper_percentile
-        self.available_keys = {'image'}
         
+    @property
+    def available_keys(self):
+        """Required by albumentations."""
+        return {'image'}
+    
     def __call__(self, image: np.ndarray) -> np.ndarray:
         """Standalone usage (for GUI and direct calls)."""
         return self.apply(image)
