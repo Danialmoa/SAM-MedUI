@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import os
 
-from SAM_finetune.models.custom_dataset import PercentileNormalize
+from SAM_finetune.models.dataset import PercentileNormalize
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.utils.logger_func import setup_logger
 from SAM_finetune.utils.z_score_norm import PercentileNormalize
