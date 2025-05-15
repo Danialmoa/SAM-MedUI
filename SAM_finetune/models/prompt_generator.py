@@ -1,5 +1,4 @@
 from typing import Dict, Any, List, Tuple
-import torch
 import numpy as np
 
         
@@ -71,10 +70,10 @@ class SAMPointPromptGenerator:
     def __init__(
         self,
         strategies: List[str] = ['positive', 'negative'],
-        points_per_strategy: int = 3,
+        number_of_points: int = 3,
     ):
         self.strategies = strategies
-        self.points_per_strategy = points_per_strategy
+        self.number_of_points = number_of_points
         
     def generate_points(self, mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Generate points using multiple strategies."""
