@@ -11,11 +11,12 @@ class SAMDatasetConfig:
     sample_size: Optional[int] = None
     
     #point prompts
+    point_prompt: bool = True
     point_prompt_types: List[str] = ('positive', 'negative')
     number_of_points: int = 3
     
     # bounding box prompts
-    bounding_box_prompt: bool = True
+    box_prompt: bool = True
     enable_direction_aug: bool = True
     enable_size_aug: bool = True
     
