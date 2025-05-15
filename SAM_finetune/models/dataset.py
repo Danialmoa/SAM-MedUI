@@ -12,19 +12,25 @@ from albumentations.core.transforms_interface import ImageOnlyTransform
 from scipy.ndimage import distance_transform_edt
 
 
-from prompt_generator import SAMBoxPromptGenerator, SAMPointPromptGenerator
-from utils.config import SAMDatasetConfig
-from utils.z_score_norm import PercentileNormalize
+from SAM_finetune.utils.config import SAMDatasetConfig
+from SAM_finetune.models.prompt_generator import SAMBoxPromptGenerator, SAMPointPromptGenerator
+from SAM_finetune.utils.z_score_norm import PercentileNormalize
+
+
 class SAMDataset(torch.utils.data.Dataset):
     def __init__(self, config: Union[Dict, SAMDatasetConfig]):
         self.config = config if isinstance(config, SAMDatasetConfig) else SAMDatasetConfig(**config)
         
+        # Number of prompts
+        self.number_of_prompts = self.config.number_of_prompts
+        
+        # Prompt generators
         self.box_generator = SAMBoxPromptGenerator(
             enable_direction_aug=self.config.enable_direction_aug,
             enable_size_aug=self.config.enable_size_aug
         )
         self.point_generator = SAMPointPromptGenerator(
-            point_prompt_types=self.config.point_prompt_types,
+            strategies=self.config.point_prompt_types,
             number_of_points=self.config.number_of_points
         )
         
@@ -107,6 +113,7 @@ class SAMDataset(torch.utils.data.Dataset):
                 - image: Transformed image tensor
                 - mask: Mask tensor
                 - prompts: Dictionary of generated prompts
+                    - prompt_{i}: Dictionary of generated prompt_{i}
                 - image_name: Name of the image
         """
         image = np.array(Image.open(self.image_paths[idx]))
@@ -116,17 +123,20 @@ class SAMDataset(torch.utils.data.Dataset):
         image = transformed['image']
         mask = transformed['mask']
         
+        # Generate prompts
         prompts = {}
-        
-        if self.config.point_prompt:
-            points, labels = self.point_generator.generate_points(mask)
-            prompts['points'] = {
-                'coords': torch.tensor(points, dtype=torch.float32),
-                'labels': torch.tensor(labels, dtype=torch.float32)
-            }
-        
-        if self.config.box_prompt:
-            prompts['boxes'] = self.box_generator.generate_boxes(mask)
+        for i in range(self.number_of_prompts):
+            prompt = {}
+            if self.config.point_prompt:
+                points, labels = self.point_generator.generate_points(mask)
+                prompt['points'] = {
+                    'coords': torch.tensor(points, dtype=torch.float32),
+                    'labels': torch.tensor(labels, dtype=torch.float32)
+                }
+            if self.config.box_prompt:
+                prompt['boxes'] = self.box_generator.generate_boxes(mask)
+            
+            prompts[f'prompt_{i}'] = prompt
 
         return {
             'image': image,
@@ -134,4 +144,21 @@ class SAMDataset(torch.utils.data.Dataset):
             'prompts': prompts,
             'image_name': os.path.basename(self.image_paths[idx])
         }
+    
+if __name__ == "__main__":
+    config = SAMDatasetConfig(
+        dataset_path='./SAM_finetune/data/train',
+        image_size=(1024, 1024),
+        number_of_prompts=1,
+        point_prompt=True,
+        box_prompt=True,
+        point_prompt_types=['positive'],
+        number_of_points=3,
+        enable_direction_aug=True,
+        enable_size_aug=True,
+        sample_size=10
+    )
+    dataset = SAMDataset(config)
+    print(len(dataset))
+    
     
