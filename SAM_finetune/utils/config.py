@@ -34,3 +34,25 @@ class SAMDatasetConfig:
             raise ValueError("sample_size must be positive")
         if not self.point_prompt_types:
             raise ValueError("point_prompt_types cannot be empty")
+        
+@dataclass
+class PreprocessorConfig:
+    """Configuration for Preprocessor."""
+    dataset_path: str
+    black_boundaries: bool = True
+    replace: bool = False
+    
+        
+@dataclass
+class SAMFinetuneConfig:
+    """Configuration for SAMFinetune."""
+    device: str = 'cuda'
+    #Loss
+    lambda_dice: float = 0.5
+    lambda_bce: float = 0.2
+    lambda_kl: float = 0.2
+    lambda_div: float = 0.1
+    sigma: int = 1
+    
+    
+    
