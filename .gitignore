@@ -35,3 +35,4 @@ __pycache__/
 checkpoints/*
 SAM_finetune/data/*
 wandb/*
+slurm/*
