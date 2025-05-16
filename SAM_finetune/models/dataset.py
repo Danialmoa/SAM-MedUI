@@ -149,7 +149,7 @@ if __name__ == "__main__":
     config = SAMDatasetConfig(
         dataset_path='./SAM_finetune/data/train',
         image_size=(1024, 1024),
-        number_of_prompts=1,
+        number_of_prompts=2,
         point_prompt=True,
         box_prompt=True,
         point_prompt_types=['positive'],
