@@ -9,7 +9,7 @@ class SAMDatasetConfig:
     dataset_path: str
     remove_nonscar: bool = True
     sample_size: Optional[int] = None
-    
+    train: bool = True
     #point prompts
     point_prompt: bool = True
     point_prompt_types: List[str] = ('positive', 'negative')
@@ -21,7 +21,7 @@ class SAMDatasetConfig:
     enable_size_aug: bool = True
     
     # number of prompts
-    number_of_prompts: int = 1
+    number_of_prompts: int = 2 # Or 1
     
     # image size
     image_size: Tuple[int, int] = (1024, 1024)
@@ -46,7 +46,20 @@ class PreprocessorConfig:
 @dataclass
 class SAMFinetuneConfig:
     """Configuration for SAMFinetune."""
+    #Training
     device: str = 'cuda'
+    wandb_project_name: str = 'SAM_finetune'
+    run_name: str = 'SAM_finetune'
+    model_type: str = 'vit_b'
+    sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
+    checkpoint_path: str = None
+    batch_size: int = 16
+    num_epochs: int = 10
+    learning_rate: float = 1e-4
+    weight_decay: float = 0.0001
+    num_workers: int = 2
+    disable_wandb: bool = False
+    
     #Loss
     lambda_dice: float = 0.5
     lambda_bce: float = 0.2
@@ -54,5 +67,7 @@ class SAMFinetuneConfig:
     lambda_div: float = 0.1
     sigma: int = 1
     
+    
+
     
     
