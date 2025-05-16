@@ -23,8 +23,8 @@ class Preprocessor(object):
         image = Image.fromarray(image_np)
         mask = Image.fromarray(mask_np)
         
-        image = image.resize(img_size)
-        mask = mask.resize(img_size)
+        image = image.resize((img_size[0], img_size[1]), Image.Resampling.BILINEAR)
+        mask = mask.resize((img_size[0], img_size[1]), Image.Resampling.BILINEAR)
         
         return image, mask
     
@@ -70,7 +70,7 @@ def run_preprocessing(config: PreprocessorConfig, list_of_paths: List[str] = ['t
         for image_path in os.listdir(image_dir):
             image = Image.open(os.path.join(image_dir, image_path))
             mask = Image.open(os.path.join(mask_dir, image_path))
-            
+
             # Process the image and mask
             processed_image, processed_mask = preprocessor(image, mask)
             
@@ -87,6 +87,6 @@ if __name__ == "__main__":
         dataset_path="./SAM_finetune/data",
         replace=True
     )
-    list_of_paths = ['train']
+    list_of_paths = ['train', 'val', 'test']
     run_preprocessing(config, list_of_paths)   
     
