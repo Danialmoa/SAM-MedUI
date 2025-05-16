@@ -26,6 +26,7 @@ class SAMBoxPromptGenerator:
         """Generate a single bounding box from mask."""
         rows = np.any(mask, axis=1)
         cols = np.any(mask, axis=0)
+
         y_min, y_max = np.where(rows)[0][[0, -1]]
         x_min, x_max = np.where(cols)[0][[0, -1]]
         return np.array([x_min, y_min, x_max, y_max])
@@ -100,7 +101,7 @@ class SAMPointPromptGenerator:
         if len(y_coords) == 0:
             return [], []
             
-        idx = np.random.choice(len(y_coords), min(self.points_per_strategy, len(y_coords)))
+        idx = np.random.choice(len(y_coords), min(self.number_of_points, len(y_coords)))
         points = [[x_coords[i], y_coords[i]] for i in idx]
         labels = [1] * len(points)
         return points, labels
@@ -112,7 +113,7 @@ class SAMPointPromptGenerator:
         if len(y_coords) == 0:
             return [], []
             
-        idx = np.random.choice(len(y_coords), min(self.points_per_strategy, len(y_coords)))
+        idx = np.random.choice(len(y_coords), min(self.number_of_points, len(y_coords)))
         points = [[x_coords[i], y_coords[i]] for i in idx]
         labels = [0] * len(points)
         return points, labels
