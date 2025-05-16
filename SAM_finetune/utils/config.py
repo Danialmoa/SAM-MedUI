@@ -40,6 +40,7 @@ class PreprocessorConfig:
     """Configuration for Preprocessor."""
     dataset_path: str
     black_boundaries: bool = True
+    enable_morphological_closing: bool = True
     replace: bool = False
     
         

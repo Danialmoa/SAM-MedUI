@@ -10,18 +10,23 @@ class Preprocessor(object):
     def __init__(self, config: PreprocessorConfig):
         self.config = config
         self.black_boundaries = config.black_boundaries
+        self.enable_morphological_closing = config.enable_morphological_closing
         
     def __call__(self, image: Image.Image, mask: Image.Image) -> Tuple[Image.Image, Image.Image]:
         image_np = np.array(image)
         mask_np = np.array(mask)
+        bin_mask = (mask_np > 0).astype(np.uint8)
         
         img_size = image_np.shape
         
         if self.black_boundaries:
             image_np, mask_np = self._remove_black_boundaries(image_np, mask_np)
+        
+        if self.enable_morphological_closing:
+            mask_np = self._morphological_closing(bin_mask)
             
         image = Image.fromarray(image_np)
-        mask = Image.fromarray(mask_np)
+        mask = Image.fromarray(mask_np * 255)
         
         image = image.resize((img_size[0], img_size[1]), Image.Resampling.BILINEAR)
         mask = mask.resize((img_size[0], img_size[1]), Image.Resampling.BILINEAR)
@@ -50,6 +55,42 @@ class Preprocessor(object):
         mask = mask[start_row:end_row, start_col:end_col]
         
         return image, mask
+    
+    def _morphological_closing(self, mask: np.ndarray) -> np.ndarray:
+        main_mask = mask.copy()
+        kernel = np.ones((3, 3), np.uint8)
+        #Fill holes in the mask
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+        connect_kernel = np.ones((7, 7), np.uint8) 
+        mask = cv2.dilate(mask, connect_kernel, iterations=1) 
+        mask = cv2.erode(mask, connect_kernel, iterations=1)
+        
+        num_labels_before, _, stats_before, _ = cv2.connectedComponentsWithStats(mask)
+        if num_labels_before > 2:
+            connect_kernel = np.ones((5, 5), np.uint8)  
+            mask = cv2.dilate(mask, connect_kernel, iterations=1)
+            mask = cv2.erode(mask, connect_kernel, iterations=1)
+            
+        #Remove small objects
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
+        min_size = 5
+        
+        clean_mask = np.zeros_like(mask)
+        for i in range(1, num_labels):  
+            if stats[i, cv2.CC_STAT_AREA] >= min_size:
+                clean_mask[labels == i] = 1
+                
+        
+        original_pixels = int(np.sum(main_mask.astype(np.int64)))
+        final_pixels = int(np.sum(clean_mask.astype(np.int64)))
+        deleted_pixels = original_pixels - final_pixels
+        print(f"Original pixels: {original_pixels}")
+        print(f"Final pixels: {final_pixels}")
+        print(f"Deleted pixels: {deleted_pixels}")
+        print(f"Percentage retained: {(final_pixels/original_pixels*100):.2f}%" if original_pixels > 0 else 0)
+                
+        return clean_mask
 
 
 def run_preprocessing(config: PreprocessorConfig, list_of_paths: List[str] = ['train', 'val', 'test']):
@@ -68,9 +109,11 @@ def run_preprocessing(config: PreprocessorConfig, list_of_paths: List[str] = ['t
         mask_dir = os.path.join(data_set_path, "masks")
         
         for image_path in os.listdir(image_dir):
+            print("-"*20)
+            print(f"Processing {image_path}")
             image = Image.open(os.path.join(image_dir, image_path))
-            mask = Image.open(os.path.join(mask_dir, image_path))
-
+            mask = Image.open(os.path.join(mask_dir, image_path)).convert("L")
+            
             # Process the image and mask
             processed_image, processed_mask = preprocessor(image, mask)
             
@@ -85,8 +128,10 @@ def run_preprocessing(config: PreprocessorConfig, list_of_paths: List[str] = ['t
 if __name__ == "__main__":
     config = PreprocessorConfig(
         dataset_path="./SAM_finetune/data",
-        replace=True
+        replace=True,
+        enable_morphological_closing=True,
+        black_boundaries=True
     )
-    list_of_paths = ['train', 'val', 'test']
+    list_of_paths = ['train', 'val']
     run_preprocessing(config, list_of_paths)   
     
