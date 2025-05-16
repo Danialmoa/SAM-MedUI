@@ -34,24 +34,26 @@ class SAMDataset(torch.utils.data.Dataset):
             number_of_points=self.config.number_of_points
         )
         
-        self.train_transforms = A.Compose([
-            A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=1),
-            A.Rotate(limit=15, p=0.3),
-            A.RandomScale(scale_limit=0.1, p=0.3),
-            A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.5),
-            A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
-            A.RandomGamma(gamma_limit=(80, 120), p=0.5), 
-            A.Resize(self.config.image_size[0], self.config.image_size[1]), 
-            PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
-            ToTensorV2()
-        ], additional_targets={'mask': 'mask'})
+        if self.config.train:
+            self.transform = A.Compose([
+                A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=1),
+                A.Rotate(limit=15, p=0.3),
+                A.RandomScale(scale_limit=0.1, p=0.3),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
+                A.RandomGamma(gamma_limit=(80, 120), p=0.5), 
+                A.Resize(self.config.image_size[0], self.config.image_size[1]), 
+                PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
+                ToTensorV2()
+            ], additional_targets={'mask': 'mask'})
         
-        self.val_transforms = A.Compose([
-            A.Resize(self.config.image_size[0], self.config.image_size[1]),
-            PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
-            ToTensorV2()
-        ], additional_targets={'mask': 'mask'})
+        else:
+            self.transform = A.Compose([
+                A.Resize(self.config.image_size[0], self.config.image_size[1]),
+                PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
+                ToTensorV2()
+            ], additional_targets={'mask': 'mask'})
         
         # load paths
         self.image_paths: List[str] = []
@@ -78,6 +80,7 @@ class SAMDataset(torch.utils.data.Dataset):
             if os.path.exists(mask_path):
                 self.image_paths.append(image_path)
                 self.mask_paths.append(mask_path)
+        
         
         if self.config.sample_size:
             indices = random.sample(range(len(self.image_paths)), 
@@ -117,24 +120,26 @@ class SAMDataset(torch.utils.data.Dataset):
                 - image_name: Name of the image
         """
         image = np.array(Image.open(self.image_paths[idx]))
-        mask = np.array(Image.open(self.mask_paths[idx]))
-        
+        mask = np.array(Image.open(self.mask_paths[idx]).convert('L'))
+        mask = np.where(mask > 128, 1, 0)
+
         transformed = self.transform(image=image, mask=mask)
         image = transformed['image']
         mask = transformed['mask']
+        mask_np = mask.numpy()
         
         # Generate prompts
         prompts = {}
         for i in range(self.number_of_prompts):
             prompt = {}
             if self.config.point_prompt:
-                points, labels = self.point_generator.generate_points(mask)
+                points, labels = self.point_generator.generate_points(mask_np)
                 prompt['points'] = {
                     'coords': torch.tensor(points, dtype=torch.float32),
                     'labels': torch.tensor(labels, dtype=torch.float32)
                 }
             if self.config.box_prompt:
-                prompt['boxes'] = self.box_generator.generate_boxes(mask)
+                prompt['boxes'] = self.box_generator.generate_boxes(mask_np)
             
             prompts[f'prompt_{i}'] = prompt
 
@@ -159,5 +164,7 @@ if __name__ == "__main__":
         sample_size=10
     )
     dataset = SAMDataset(config)
-    
+    data = dataset[0]
+    print(data['image'].shape)
+    print(data['mask'].shape)
     
