@@ -11,3 +11,5 @@ ttkbootstrap==1.12.2
 nibabel==5.3.2
 opencv_python_headless==4.11.0.86
 ttkbootstrap==1.12.2
+tqdm==4.67.1
+wandb==0.19.11
