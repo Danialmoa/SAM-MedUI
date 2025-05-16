@@ -1,5 +1,6 @@
 import numpy as np
 from albumentations.core.transforms_interface import ImageOnlyTransform
+from typing import Tuple
 
 class PercentileNormalize(ImageOnlyTransform):
     """Normalize image by percentiles. Works both as standalone and with albumentations."""
@@ -13,15 +14,6 @@ class PercentileNormalize(ImageOnlyTransform):
         super().__init__(p=p)
         self.lower_percentile = lower_percentile
         self.upper_percentile = upper_percentile
-        
-    @property
-    def available_keys(self):
-        """Required by albumentations."""
-        return {'image'}
-    
-    def __call__(self, image: np.ndarray) -> np.ndarray:
-        """Standalone usage (for GUI and direct calls)."""
-        return self.apply(image)
     
     def apply(self, img: np.ndarray, **kwargs) -> np.ndarray:
         """Albumentations interface."""
