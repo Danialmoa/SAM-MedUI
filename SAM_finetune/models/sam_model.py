@@ -2,12 +2,15 @@ import torch
 from segment_anything import sam_model_registry
 import torch.nn.functional as F
 import torch.nn as nn
+from typing import Tuple, List, Optional, Dict
+
+from SAM_finetune.utils.config import SAMFinetuneConfig
 
 class SAMModel(nn.Module):
-    def __init__(self, config: dict):
+    def __init__(self, config: SAMFinetuneConfig):
         super().__init__()
         self.config = config
-        self.device = torch.device(config['device'])
+        self.device = torch.device(config.device)
         self.model = self.load_model()
         
         self.image_encoder = self.model.image_encoder
@@ -17,85 +20,75 @@ class SAMModel(nn.Module):
         self.mask_decoder.multimask_output = False
 
     def load_model(self):
-        sam = sam_model_registry[self.config['model_type']](checkpoint=self.config['sam_path'])
+        sam = sam_model_registry[self.config.model_type](checkpoint=self.config.sam_path)
         sam.to(self.device)
-        if self.config['checkpoint_path']:
-            checkpoint = torch.load(self.config['checkpoint_path'], map_location=self.device)
+        if self.config.checkpoint_path:
+            checkpoint = torch.load(self.config.checkpoint_path, map_location=self.device)
             sam.load_state_dict(checkpoint['model_state_dict'])
             print("Loaded checkpoint")
         return sam
     
-    def forward(self, image, bounding_box=None, points=None, is_train=True):
+    def forward_one_image(
+        self, 
+        image: torch.Tensor,
+        bounding_box: Optional[torch.Tensor] = None,
+        points: Optional[Dict[str, torch.Tensor]] = None,
+        is_train: bool = True
+    ) -> torch.Tensor:
+        """Forward pass for SAM model."""
         if is_train:
             self.train()
         else:
             self.eval()
             
         image = image.to(self.device)
-        batch_size = image.shape[0]
+        image_size = image.shape[2:]
         
-        mask_predictions = []
-        
-        for i in range(batch_size):
-            single_image = image[i:i+1]
-            single_image = single_image.float()
-            image_embedding = self.image_encoder(single_image)
+        image_embedding = self.image_encoder(image)
             
-            # Prepare prompts 
-            with torch.no_grad():
-                
-                if bounding_box is not None:
-                    box = bounding_box[i].to(self.device)
-                    if len(box.shape) == 2:
-                        box = box[:, None, :]
-                    box = box.float()
-                else:
-                    box = None
-                
-                if points is not None:
-                    point_coords = points['coords'][i].to(self.device)
-                    point_labels = points['labels'][i].to(self.device)
-
-                    point_coords = point_coords.unsqueeze(0)
-                    point_labels = point_labels.unsqueeze(0)
-                    if len(point_coords.shape) == 2:
-                        point_coords = point_coords.unsqueeze(0)
+        # Prepare prompts 
+        with torch.no_grad():
+            box = self._prepare_box(bounding_box) if bounding_box is not None else None
+            pts = self._prepare_points(points) if points is not None else None
             
-                    pts = (point_coords, point_labels)
-                else:
-                    pts = None
-                
-                sparse_embeddings, dense_embeddings = self.prompt_encoder(
-                    points=pts,
-                    boxes=box,
-                    masks=None,
-                )
-            
-            low_res_masks, _ = self.mask_decoder(
-                image_embeddings=image_embedding,
-                image_pe=self.prompt_encoder.get_dense_pe(),
-                sparse_prompt_embeddings=sparse_embeddings,
-                dense_prompt_embeddings=dense_embeddings,
-                multimask_output=False,
+            sparse_embeddings, dense_embeddings = self.prompt_encoder(
+                points=pts,
+                boxes=box,
+                masks=None,
             )
             
-            high_res_masks = F.interpolate(
-                low_res_masks,
-                size=(image.shape[2], image.shape[3]),
-                mode="bilinear",
-                align_corners=False,
-            )
+        low_res_masks, iou_prediction = self.mask_decoder(
+            image_embeddings=image_embedding,
+            image_pe=self.prompt_encoder.get_dense_pe(),
+            sparse_prompt_embeddings=sparse_embeddings,
+            dense_prompt_embeddings=dense_embeddings,
+            multimask_output=False,
+        )
             
-            mask_predictions.append(high_res_masks)
-        
-        final_masks = torch.cat(mask_predictions, dim=0)
-        return final_masks
+        high_res_masks = F.interpolate(
+            low_res_masks,
+            size=image_size,
+            mode="bilinear",
+            align_corners=False,
+        )
+            
+        return high_res_masks, iou_prediction
     
-if __name__ == "__main__":
-    config = {
-        'model_type': 'vit_b',
-        'sam_path': 'sam_vit_b_01ec64.pth',
-        'checkpoint_path': 'sam_vit_b_01ec64.pth',
-        'device': 'mps'
-    }
-    sam_model = SAMModel(config)
+    def _prepare_box(self, bounding_box: torch.Tensor) -> torch.Tensor:
+        """Prepare bounding box for SAM model."""
+        if len(bounding_box.shape) == 2:
+            bounding_box = bounding_box[:, None, :]
+        return bounding_box
+    
+    def _prepare_points(self, points: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Prepare points for SAM model."""
+        point_coords = points['coords']
+        point_labels = points['labels']
+        
+        point_coords = point_coords.unsqueeze(0)
+        point_labels = point_labels.unsqueeze(0)
+        if len(point_coords.shape) == 2:
+            point_coords = point_coords.unsqueeze(0)
+            
+        return (point_coords, point_labels)
+    
