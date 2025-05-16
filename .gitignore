@@ -34,3 +34,4 @@ __pycache__/
 *.pyc
 checkpoints/*
 SAM_finetune/data/*
+wandb/*
