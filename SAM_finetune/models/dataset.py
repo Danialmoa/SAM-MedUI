@@ -119,7 +119,7 @@ class SAMDataset(torch.utils.data.Dataset):
                     - prompt_{i}: Dictionary of generated prompt_{i}
                 - image_name: Name of the image
         """
-        image = np.array(Image.open(self.image_paths[idx]))
+        image = np.array(Image.open(self.image_paths[idx]).convert('RGB'))
         mask = np.array(Image.open(self.mask_paths[idx]).convert('L'))
         mask = np.where(mask > 128, 1, 0)
 
@@ -129,24 +129,33 @@ class SAMDataset(torch.utils.data.Dataset):
         mask_np = mask.numpy()
         
         # Generate prompts
-        prompts = {}
+        points_coords = []
+        points_labels = []
+        boxes = []
+        
         for i in range(self.number_of_prompts):
             prompt = {}
             if self.config.point_prompt:
                 points, labels = self.point_generator.generate_points(mask_np)
-                prompt['points'] = {
-                    'coords': torch.tensor(points, dtype=torch.float32),
-                    'labels': torch.tensor(labels, dtype=torch.float32)
-                }
+                points_coords.append(torch.tensor(points, dtype=torch.float32))
+                points_labels.append(torch.tensor(labels, dtype=torch.float32))
             if self.config.box_prompt:
-                prompt['boxes'] = self.box_generator.generate_boxes(mask_np)
+                box = self.box_generator.generate_boxes(mask_np)
+                boxes.append(torch.tensor(box, dtype=torch.float32))
+
+        if self.config.point_prompt:
+            points_coords = torch.stack(points_coords)  # Shape: [num_prompts, num_points, 2]
+            points_labels = torch.stack(points_labels)  # Shape: [num_prompts, num_points]
             
-            prompts[f'prompt_{i}'] = prompt
+        if self.config.box_prompt:
+            boxes = torch.stack(boxes)
 
         return {
-            'image': image,
-            'mask': mask,
-            'prompts': prompts,
+            'image': image.float(),
+            'mask': mask.float(),
+            'points_coords': points_coords if self.config.point_prompt else None,
+            'points_labels': points_labels if self.config.point_prompt else None,
+            'boxes': boxes if self.config.box_prompt else None,
             'image_name': os.path.basename(self.image_paths[idx])
         }
     
