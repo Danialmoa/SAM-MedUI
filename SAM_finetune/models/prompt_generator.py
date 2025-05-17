@@ -51,17 +51,18 @@ class SAMBoxPromptGenerator:
     def _apply_size_augmentation(self, box: np.ndarray, mask_shape: Tuple[int, int]) -> np.ndarray:
         """Apply size augmentation to the box."""
         x_min, y_min, x_max, y_max = box
-        expand_factor = np.random.uniform(1, 1.2)
+        expand_factor_x = np.random.uniform(1, 1.2)
+        expand_factor_y = np.random.uniform(1, 1.2)
         
         center_x = (x_min + x_max) / 2
         center_y = (y_min + y_max) / 2
         width = x_max - x_min
         height = y_max - y_min
         
-        x_min = max(0, center_x - (width * expand_factor) / 2)
-        x_max = min(mask_shape[1], center_x + (width * expand_factor) / 2)
-        y_min = max(0, center_y - (height * expand_factor) / 2)
-        y_max = min(mask_shape[0], center_y + (height * expand_factor) / 2)
+        x_min = max(0, center_x - (width * expand_factor_x) / 2)
+        x_max = min(mask_shape[1], center_x + (width * expand_factor_x) / 2)
+        y_min = max(0, center_y - (height * expand_factor_y) / 2)
+        y_max = min(mask_shape[0], center_y + (height * expand_factor_y) / 2)
         
         return np.array([x_min, y_min, x_max, y_max])
     
