@@ -12,3 +12,4 @@ opencv_python_headless==4.11.0.86
 ttkbootstrap==1.12.2
 tqdm==4.67.1
 wandb==0.19.11
+torchvision==0.22.0
