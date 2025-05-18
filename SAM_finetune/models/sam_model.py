@@ -13,9 +13,9 @@ class SAMModel(nn.Module):
         self.device = torch.device(config.device)
         self.model = self.load_model()
         
-        self.image_encoder = self.model.image_encoder
-        self.mask_decoder = self.model.mask_decoder
-        self.prompt_encoder = self.model.prompt_encoder
+        self.image_encoder = self.model.image_encoder.to(self.device)
+        self.mask_decoder = self.model.mask_decoder.to(self.device)
+        self.prompt_encoder = self.model.prompt_encoder.to(self.device)
         
         self.mask_decoder.multimask_output = False
 
@@ -50,7 +50,7 @@ class SAMModel(nn.Module):
         with torch.no_grad():
             box = self._prepare_box(bounding_box) if bounding_box is not None else None
             pts = self._prepare_points(points) if points is not None else None
-            
+
             sparse_embeddings, dense_embeddings = self.prompt_encoder(
                 points=pts,
                 boxes=box,
@@ -71,8 +71,7 @@ class SAMModel(nn.Module):
             mode="bilinear",
             align_corners=False,
         )
-            
-        return high_res_masks, iou_prediction
+        return high_res_masks.squeeze(1), iou_prediction
     
     def _prepare_box(self, bounding_box: torch.Tensor) -> torch.Tensor:
         """Prepare bounding box for SAM model."""
@@ -82,13 +81,12 @@ class SAMModel(nn.Module):
     
     def _prepare_points(self, points: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Prepare points for SAM model."""
-        point_coords = points['coords']
-        point_labels = points['labels']
+        point_coords = points['coords'].to(self.device)
+        point_labels = points['labels'].to(self.device)
         
-        point_coords = point_coords.unsqueeze(0)
-        point_labels = point_labels.unsqueeze(0)
         if len(point_coords.shape) == 2:
             point_coords = point_coords.unsqueeze(0)
+            point_labels = point_labels.unsqueeze(0)
             
         return (point_coords, point_labels)
     

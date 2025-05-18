@@ -10,6 +10,7 @@ class SAMDatasetConfig:
     remove_nonscar: bool = True
     sample_size: Optional[int] = None
     train: bool = True
+    
     #point prompts
     point_prompt: bool = True
     point_prompt_types: List[str] = ('positive', 'negative')

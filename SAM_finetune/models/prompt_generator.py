@@ -26,7 +26,10 @@ class SAMBoxPromptGenerator:
         """Generate a single bounding box from mask."""
         rows = np.any(mask, axis=1)
         cols = np.any(mask, axis=0)
-
+        
+        if not rows.any() or not cols.any():
+            raise ValueError("Empty mask detected - no positive pixels found")
+        
         y_min, y_max = np.where(rows)[0][[0, -1]]
         x_min, x_max = np.where(cols)[0][[0, -1]]
         return np.array([x_min, y_min, x_max, y_max])

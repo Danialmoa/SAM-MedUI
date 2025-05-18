@@ -91,15 +91,19 @@ class SAMDataset(torch.utils.data.Dataset):
         print(f"Loaded {len(self.image_paths)} images and masks")
         
     def _remove_nonscar(self):
-        counter = 0
+        removed_count = 0
+        valid_indices = []
         for i, mask_path in enumerate(self.mask_paths):
             mask = Image.open(mask_path)
-            if np.array(mask).sum() < 5:
-                self.image_paths.pop(i)
-                self.mask_paths.pop(i)
-                counter += 1
-                
-        print(f"Removed {counter} empty masks")
+            if np.array(mask).sum() >= 5:
+                valid_indices.append(i)
+            else:
+                removed_count += 1
+        self.image_paths = [self.image_paths[i] for i in valid_indices]
+        self.mask_paths = [self.mask_paths[i] for i in valid_indices]
+        
+        print(f"Removed {removed_count} empty masks")
+        print(f"Loaded {len(self.image_paths)} images and masks")
             
     def __len__(self) -> int:
         return len(self.image_paths)

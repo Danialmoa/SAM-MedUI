@@ -5,7 +5,7 @@ from monai.losses import DiceLoss
 from torch.nn import BCEWithLogitsLoss
 import numpy as np
 from typing import Optional
-
+from scipy.ndimage import gaussian_filter
 from SAM_finetune.utils.config import SAMFinetuneConfig
 
 
@@ -33,29 +33,13 @@ class CombinedLoss(torch.nn.Module):
         
         self.sigma = config.sigma
         self.device = config.device
-        
 
     def soft_label(self, mask : torch.Tensor) -> torch.Tensor:
-        kernel_size = max(3, int(2 * round(3 * self.sigma) + 1))
-        
-        #Gaussian kernel
-        x = torch.arange(-(kernel_size // 2), kernel_size // 2 + 1, device=self.device)
-        gaussian_1d = torch.exp(-(x ** 2) / (2 * self.sigma ** 2))
-        gaussian_1d = gaussian_1d / gaussian_1d.sum()
-        gaussian_2d = gaussian_1d.unsqueeze(0) * gaussian_1d.unsqueeze(1)
-        gaussian_2d = gaussian_2d.unsqueeze(0).unsqueeze(0)
-        
-        padding = kernel_size // 2
-        soft_mask = F.conv2d(
-            mask.float(),
-            gaussian_2d,
-            padding=padding,
-            groups=mask.size(1)
-        )
-        
+        mask_np = mask.cpu().numpy()
+        soft_mask = gaussian_filter(mask_np.astype(float), sigma=self.sigma)
+        soft_mask = torch.tensor(soft_mask).to(mask.device)
         if soft_mask.max() < 1e-8:
             return torch.zeros_like(mask)
-        
         return soft_mask / (soft_mask.max() + 1e-8)
     
     def kl_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:

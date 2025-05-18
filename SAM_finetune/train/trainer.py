@@ -6,6 +6,7 @@ from tqdm import tqdm
 import logging
 from datetime import datetime
 import wandb
+import numpy as np
 from monai.metrics import DiceMetric
 
 from SAM_finetune.models.sam_model import SAMModel
@@ -139,13 +140,18 @@ class SAMTrainer:
 
             # Process each prompt in the batch
             batch_loss = 0
+            batch_pred_masks = []
+            batch_second_pred_masks = []
+            
             for i, image in enumerate(images):
                 if batch['points_coords'] is not None:
                     num_prompts = batch['points_coords'][i].shape[0]
                 else:
                     num_prompts = batch['boxes'][i].shape[0]
                 
-                pred_masks = []
+                image_pred_masks = []
+                image_second_pred_masks = []
+                
                 iou_predictions = []
                 for prompt_idx in range(num_prompts):
                     if batch['points_coords'] is not None:
@@ -167,19 +173,29 @@ class SAMTrainer:
                         bounding_box=prompt_data.get('boxes'),
                         is_train=True
                     )
+
+                    if prompt_idx == 0:
+                        image_pred_masks.append(pred_mask.squeeze(0))
+                        iou_predictions.append(iou_prediction.item())
+                    else:
+                        image_second_pred_masks.append(pred_mask.squeeze(0))
                 
-                    pred_masks.append(pred_mask)
-                    iou_predictions.append(iou_prediction)
+                iou_scores.append(np.mean(iou_predictions))
+                batch_pred_masks.append(image_pred_masks[0])
+                if image_second_pred_masks:
+                    batch_second_pred_masks.append(image_second_pred_masks[0])
                 
-                iou_scores.append(iou_predictions.mean())
-            self.dice_metric(y_pred=torch.sigmoid(pred_masks[0]), y=masks)
+            pred_masks = torch.stack(batch_pred_masks, dim=0)
+            if batch_second_pred_masks:
+                second_pred_masks = torch.stack(batch_second_pred_masks, dim=0)
             
+            self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
             # Calculate loss
             if num_prompts == 1:
-                loss = self.criterion(pred=pred_masks[0], target=masks)
+                loss = self.criterion(pred=pred_masks, target=masks)
             else:
-                loss = self.criterion(pred=pred_masks[0], target=masks, second_pred=pred_masks[1])
-            batch_loss += loss            
+                loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
+            batch_loss = loss            
             
             # Backward pass
             self.optimizer.zero_grad()
@@ -217,12 +233,20 @@ class SAMTrainer:
                 masks = batch['mask'].float().to(self.device)
                 
                 batch_loss = 0
-                num_prompts = len(batch['prompts'])
+                batch_pred_masks = []
+                batch_second_pred_masks = []
                 
                 for i, image in enumerate(images):
-                    num_prompts = len(batch['prompts'][i])
-                    pred_masks = []
+                    if batch['points_coords'] is not None:
+                        num_prompts = batch['points_coords'][i].shape[0]
+                    else:
+                        num_prompts = batch['boxes'][i].shape[0]
+                    
+                    image_pred_masks = []
+                    image_second_pred_masks = []
+                    
                     iou_predictions = []
+                    
                     for prompt_idx in range(num_prompts):
                         prompt_data = batch['prompts'][i][prompt_idx]
                         
@@ -233,17 +257,24 @@ class SAMTrainer:
                             is_train=False
                         )
                         
-                        pred_masks.append(pred_mask)
-                        iou_predictions.append(iou_prediction)
+                        if prompt_idx == 0:
+                            image_pred_masks.append(pred_mask)
+                            iou_predictions.append(iou_prediction.item())
+                        else:
+                            image_second_pred_masks.append(pred_mask)
                     
-                    iou_scores.append(iou_predictions.mean())
-                    self.dice_metric(y_pred=torch.sigmoid(pred_masks[0]), y=masks)
+                    pred_masks = torch.stack(image_pred_masks, dim=0)
+                    if image_second_pred_masks:
+                        second_pred_masks = torch.stack(image_second_pred_masks, dim=0)
+                    
+                    iou_scores.append(np.mean(iou_predictions))
+                    self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
                     
                     if num_prompts == 1:
-                        loss = self.criterion(pred=pred_masks[0], target=masks)
+                        loss = self.criterion(pred=pred_masks, target=masks)
                     else:
-                        loss = self.criterion(pred=pred_masks[0], target=masks, second_pred=pred_masks[1])
-                    batch_loss += loss
+                        loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
+                    batch_loss = loss
                 
                 val_loss += batch_loss.item()
         
@@ -291,13 +322,13 @@ class SAMTrainer:
 if __name__ == "__main__":
 
     finetune_config = SAMFinetuneConfig(
-        device='cpu',
+        device='cuda',
         wandb_project_name='SAM_finetune',
         run_name='run_1',
         model_type='vit_b',
         sam_path='checkpoints/sam_vit_b_01ec64.pth',
-        num_epochs=1,
-        batch_size=2,
+        num_epochs=100,
+        batch_size=4,
         learning_rate=1e-4,
         weight_decay=0.0001,
         lambda_dice=0.5,
@@ -305,7 +336,7 @@ if __name__ == "__main__":
         lambda_kl=0.2,
         lambda_div=0.1,
         sigma=1,
-        disable_wandb=True
+        disable_wandb=False
     )
     train_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/train/',
@@ -322,8 +353,22 @@ if __name__ == "__main__":
         train=True
     )
     
-    val_dataset_config = None
+    val_dataset_config = SAMDatasetConfig(
+        dataset_path='SAM_finetune/data/val/',
+        remove_nonscar=True,
+        sample_size=None,
+        point_prompt=True,
+        point_prompt_types=['positive'],
+        number_of_points=3,
+        box_prompt=True,
+        enable_direction_aug=False,
+        enable_size_aug=False,
+        number_of_prompts=1,
+        image_size=(1024, 1024),
+        train=False
+    )
 
     train_dataset = SAMDataset(train_dataset_config)
-    trainer = SAMTrainer(finetune_config, train_dataset)
+    val_dataset = SAMDataset(val_dataset_config)
+    trainer = SAMTrainer(finetune_config, train_dataset, val_dataset)
     trainer.train(finetune_config.num_epochs)
