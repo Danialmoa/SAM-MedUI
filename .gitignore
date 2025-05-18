@@ -36,3 +36,4 @@ checkpoints/*
 SAM_finetune/data/*
 wandb/*
 slurm/*
+runs/*
