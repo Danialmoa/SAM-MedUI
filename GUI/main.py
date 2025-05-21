@@ -53,6 +53,8 @@ class SAMGUI:
         self.mass_label_var = tk.StringVar(value="No segmentation")
         self.gamma_value = tk.DoubleVar(value=1.0)
         
+        self.mask_temporarily_hidden = False
+        
         # Dictionaries to store state for each image
         self.saved_masks = {}
         self.saved_prompts = {}
@@ -138,7 +140,7 @@ class SAMGUI:
         # Add a label showing keyboard shortcuts
         self.controls_status = Label(
             status_frame,
-            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate",
+            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate | H: Hide Mask",
             bootstyle="inverse-secondary",
             anchor=tk.E,
             padding=5
@@ -302,6 +304,10 @@ class SAMGUI:
         self.canvas_view.canvas.bind("<Control-ButtonPress-1>", self.on_pan_start)
         self.canvas_view.canvas.bind("<Control-B1-Motion>", self.on_pan_move)
         self.canvas_view.canvas.bind("<Control-ButtonRelease-1>", self.on_pan_end)
+        
+        # mask toggle binding
+        self.root.bind("<KeyPress-h>", self.hide_mask)
+        self.root.bind("<KeyRelease-h>", self.show_mask)
     
     # Image loading and navigation methods
     def load_images(self):
@@ -777,7 +783,8 @@ class SAMGUI:
             bbox=self.bbox,
             point_coords=self.point_coords,
             point_labels=self.point_labels,
-            gamma=self.gamma_value.get()
+            gamma=self.gamma_value.get(),
+            mask_visible=not self.mask_temporarily_hidden
         )
     
     # File saving methods
@@ -1063,6 +1070,18 @@ class SAMGUI:
         metadata['pixel_spacing'] = [float(pixel_dims[0]), float(pixel_dims[1])]
         metadata['slice_thickness'] = float(pixel_dims[2])
         return metadata
+    
+    def hide_mask(self, event):
+        """Temporarily hide the mask when key is pressed"""
+        if self.current_mask is not None:
+            self.mask_temporarily_hidden = True
+            self.redraw_canvas()
+            
+    def show_mask(self, event):
+        """Show the mask again when key is released"""
+        if self.current_mask is not None:
+            self.mask_temporarily_hidden = False
+            self.redraw_canvas()
 
 if __name__ == "__main__":
     config = SAMGUIConfig(

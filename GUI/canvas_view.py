@@ -205,7 +205,7 @@ class CanvasView:
         return pixel_count, mass
 
     
-    def draw_image_with_annotations(self, bbox=None, point_coords=None, point_labels=None, gamma=1.0):
+    def draw_image_with_annotations(self, bbox=None, point_coords=None, point_labels=None, gamma=1.0, mask_visible=True):
         """Redraw the image with annotations (bbox and points) and apply gamma correction"""
         if self.display_image is None:
             return
@@ -259,7 +259,7 @@ class CanvasView:
             self.current_view_start_y = 0
         
         # Now overlay the mask if it exists
-        if self.current_mask is not None:
+        if self.current_mask is not None and mask_visible:
             # Resize mask to match the current view
             display_h, display_w = self.displayed_image.shape[:2]
             
@@ -351,7 +351,7 @@ class CanvasView:
                 if 0 <= x_zoomed < w and 0 <= y_zoomed < h:
                     label = point_labels[i] if i < len(point_labels) else 1
                     color = (0, 255, 0) if label == 1 else (255, 0, 0)  # Green=FG, Red=BG
-                    cv2.circle(self.displayed_image, (x_zoomed, y_zoomed), 5, color, -1)
+                    cv2.circle(self.displayed_image, (x_zoomed, y_zoomed), 3, color, -1)
         
         self.update_canvas()
     
