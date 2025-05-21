@@ -427,64 +427,79 @@ class SAMGUI:
         if self.canvas_view.original_image is None:
             return
         
-        # If control is pressed, we're panning, not creating points/boxes
+        # If control is pressed, we're panning, not editing
         if event.state & 0x4:  # Control key is pressed
             return
-        
-        # Start user interaction timer
-        self.interaction_start_time = time.time()
-        image_name = os.path.basename(self.image_path) if self.image_path else "unknown"
-        logger.info(f"User started interaction on image: {image_name}")
-        
+            
         # Convert from screen coordinates to image coordinates
         img_x, img_y = self.canvas_view.screen_to_image_coords(event.x, event.y)
         
-        # Store initial click position for both potential point and bbox
+        # Check if we're clicking near a bbox handle
+        if self.bbox:
+            handle = self.canvas_view.is_near_bbox_handle(event.x, event.y, self.bbox)
+            if handle:
+                self.canvas_view.is_editing_bbox = True
+                self.canvas_view.edit_handle = handle
+                return
+        
+        # If not editing bbox, proceed with normal point/bbox creation
         self.bbox_start_x = img_x
         self.bbox_start_y = img_y
-        
-        # Always set drawing mode to true to handle both points and bboxes
         self.drawing = True
-        
         self.redraw_canvas()
-    
+
     def on_mouse_move(self, event):
-        if self.canvas_view.original_image is None or not self.drawing or not self.bbox_enabled.get():
+        if self.canvas_view.original_image is None:
             return
-        
-        # If control is pressed, we're panning, not creating points/boxes
-        if event.state & 0x4:  # Control key is pressed
+            
+        # If control is pressed, we're panning
+        if event.state & 0x4:
             return
-        
-        # Convert from screen coordinates to image coordinates
-        img_x, img_y = self.canvas_view.screen_to_image_coords(event.x, event.y)
-        
-        # For display purposes only (temporary rectangle during dragging)
-        temp_image = self.canvas_view.displayed_image.copy()
-        
-        # Calculate the starting point in displayed coordinates
-        start_screen_x = self.bbox_start_x * self.canvas_view.zoom_level
-        start_screen_y = self.bbox_start_y * self.canvas_view.zoom_level
-        
-        if self.canvas_view.zoom_level > 1.0:
-            # Adjust for the current view position
-            start_screen_x -= self.canvas_view.current_view_start_x
-            start_screen_y -= self.canvas_view.current_view_start_y
-        
-        # Draw temporary rectangle in screen coordinates
-        cv2.rectangle(temp_image, 
-                     (int(start_screen_x), int(start_screen_y)), 
-                     (event.x, event.y), 
-                     (255, 0, 0), 2)
-        
-        self.canvas_view.image_tk = ImageTk.PhotoImage(Image.fromarray(temp_image))
-        self.canvas_view.canvas.itemconfig(self.canvas_view.canvas_image, image=self.canvas_view.image_tk)
-        self.canvas_view.canvas.image = self.canvas_view.image_tk
-    
+            
+        # Handle bbox editing
+        if self.canvas_view.is_editing_bbox:
+            self.bbox = self.canvas_view.update_bbox_on_drag(event.x, event.y, self.bbox)
+            self.redraw_canvas()
+            return
+            
+        # Handle normal drawing
+        if self.drawing and self.bbox_enabled.get():
+            # Convert from screen coordinates to image coordinates
+            img_x, img_y = self.canvas_view.screen_to_image_coords(event.x, event.y)
+            
+            # For display purposes only (temporary rectangle during dragging)
+            temp_image = self.canvas_view.displayed_image.copy()
+            
+            # Calculate the starting point in displayed coordinates
+            start_screen_x = self.bbox_start_x * self.canvas_view.zoom_level
+            start_screen_y = self.bbox_start_y * self.canvas_view.zoom_level
+            
+            if self.canvas_view.zoom_level > 1.0:
+                # Adjust for the current view position
+                start_screen_x -= self.canvas_view.current_view_start_x
+                start_screen_y -= self.canvas_view.current_view_start_y
+            
+            # Draw temporary rectangle in screen coordinates
+            cv2.rectangle(temp_image, 
+                         (int(start_screen_x), int(start_screen_y)), 
+                         (event.x, event.y), 
+                         (255, 0, 0), 2)
+            
+            self.canvas_view.image_tk = ImageTk.PhotoImage(Image.fromarray(temp_image))
+            self.canvas_view.canvas.itemconfig(self.canvas_view.canvas_image, image=self.canvas_view.image_tk)
+            self.canvas_view.canvas.image = self.canvas_view.image_tk
+
     def on_mouse_up(self, event):
         if self.canvas_view.original_image is None:
             return
         
+        # If we were editing the bbox
+        if self.canvas_view.is_editing_bbox:
+            self.canvas_view.is_editing_bbox = False
+            self.canvas_view.edit_handle = None
+            self.redraw_canvas()
+            return
+            
         # If control is pressed, we're panning, not creating points/boxes
         if event.state & 0x4:  # Control key is pressed
             return
@@ -526,12 +541,6 @@ class SAMGUI:
                     image_name = os.path.basename(self.image_path) if self.image_path else "unknown"
                     logger.info(f"User created bounding box [{x1},{y1},{x2},{y2}] on image: {image_name}")
                     self.update_status(f"Created bounding box ({x2-x1}x{y2-y1})")
-        
-        # Log interaction duration
-        if hasattr(self, 'interaction_start_time'):
-            interaction_time = time.time() - self.interaction_start_time
-            image_name = os.path.basename(self.image_path) if self.image_path else "unknown"
-            logger.info(f"User interaction completed in {interaction_time:.2f} seconds on image: {image_name}")
         
         self.redraw_canvas()
     

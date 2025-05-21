@@ -44,6 +44,11 @@ class CanvasView:
         self.current_view_start_x = 0
         self.current_view_start_y = 0
         
+        # Bounding box editing state
+        self.is_editing_bbox = False
+        self.edit_handle = None  # Can be 'n','s','e','w','ne','nw','se','sw' for corners/edges
+        self.handle_size = 6  # Size of the resize handles in pixels
+        
         # Bind events
         self.canvas.bind("<ButtonPress-1>", on_mouse_down)
         self.canvas.bind("<B1-Motion>", on_mouse_move)
@@ -333,6 +338,10 @@ class CanvasView:
                 # Draw only if we have valid coordinates
                 if x1 < x2 and y1 < y2:
                     cv2.rectangle(self.displayed_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            
+            # Draw the handles if we're not currently drawing a new bbox
+            if not self.parent.drawing:
+                self.draw_bbox_handles(bbox)
         
         # Draw points
         if point_coords and point_labels:
@@ -426,3 +435,102 @@ class CanvasView:
         except Exception as e:
             logger.error(f"Error loading NIfTI image: {e}")
             return None, None
+
+    def is_near_bbox_handle(self, x, y, bbox):
+        """Check if the given coordinates are near any bbox handle"""
+        if not bbox:
+            return None
+            
+        x1, y1, x2, y2 = bbox
+        # Apply zoom and pan transformations
+        x1 = int(x1 * self.zoom_level) - (self.current_view_start_x if self.zoom_level > 1.0 else 0)
+        y1 = int(y1 * self.zoom_level) - (self.current_view_start_y if self.zoom_level > 1.0 else 0)
+        x2 = int(x2 * self.zoom_level) - (self.current_view_start_x if self.zoom_level > 1.0 else 0)
+        y2 = int(y2 * self.zoom_level) - (self.current_view_start_y if self.zoom_level > 1.0 else 0)
+        
+        # Define handle regions
+        handle_size = self.handle_size
+        
+        # Check corners first (they take precedence over edges)
+        if abs(x - x1) <= handle_size and abs(y - y1) <= handle_size:
+            return 'nw'
+        if abs(x - x2) <= handle_size and abs(y - y1) <= handle_size:
+            return 'ne'
+        if abs(x - x1) <= handle_size and abs(y - y2) <= handle_size:
+            return 'sw'
+        if abs(x - x2) <= handle_size and abs(y - y2) <= handle_size:
+            return 'se'
+            
+        # Then check edges
+        if abs(x - x1) <= handle_size and y1 < y < y2:
+            return 'w'
+        if abs(x - x2) <= handle_size and y1 < y < y2:
+            return 'e'
+        if abs(y - y1) <= handle_size and x1 < x < x2:
+            return 'n'
+        if abs(y - y2) <= handle_size and x1 < x < x2:
+            return 's'
+            
+        return None
+
+    def draw_bbox_handles(self, bbox):
+        """Draw handles on the bounding box corners and edges"""
+        if not bbox:
+            return
+            
+        x1, y1, x2, y2 = bbox
+        # Apply zoom and pan transformations
+        x1 = int(x1 * self.zoom_level) - (self.current_view_start_x if self.zoom_level > 1.0 else 0)
+        y1 = int(y1 * self.zoom_level) - (self.current_view_start_y if self.zoom_level > 1.0 else 0)
+        x2 = int(x2 * self.zoom_level) - (self.current_view_start_x if self.zoom_level > 1.0 else 0)
+        y2 = int(y2 * self.zoom_level) - (self.current_view_start_y if self.zoom_level > 1.0 else 0)
+        
+        handle_size = self.handle_size // 2  # Half size for the handle squares
+        
+        # Draw corner handles
+        corners = [(x1, y1), (x2, y1), (x1, y2), (x2, y2)]
+        for x, y in corners:
+            cv2.rectangle(self.displayed_image,
+                         (x - handle_size, y - handle_size),
+                         (x + handle_size, y + handle_size),
+                         (0, 255, 255), 1)  # Yellow filled squares
+                         
+        # Draw edge handles (middle points)
+        mid_y = (y1 + y2) // 2
+        mid_x = (x1 + x2) // 2
+        edges = [(x1, mid_y), (x2, mid_y), (mid_x, y1), (mid_x, y2)]
+        for x, y in edges:
+            cv2.rectangle(self.displayed_image,
+                         (x - handle_size, y - handle_size),
+                         (x + handle_size, y + handle_size),
+                         (0, 255, 255), 1)
+
+    def update_bbox_on_drag(self, x, y, bbox):
+        """Update bbox dimensions based on handle being dragged"""
+        if not self.edit_handle:
+            return bbox
+            
+        x1, y1, x2, y2 = bbox
+        img_x, img_y = self.screen_to_image_coords(x, y)
+        
+        # Update coordinates based on which handle is being dragged
+        if 'n' in self.edit_handle:
+            y1 = img_y
+        if 's' in self.edit_handle:
+            y2 = img_y
+        if 'w' in self.edit_handle:
+            x1 = img_x
+        if 'e' in self.edit_handle:
+            x2 = img_x
+            
+        # Ensure x1 < x2 and y1 < y2
+        if x1 > x2:
+            x1, x2 = x2, x1
+            # Swap handle direction
+            self.edit_handle = self.edit_handle.replace('w', 'E').replace('e', 'W').lower()
+        if y1 > y2:
+            y1, y2 = y2, y1
+            # Swap handle direction
+            self.edit_handle = self.edit_handle.replace('n', 'S').replace('s', 'N').lower()
+            
+        return [x1, y1, x2, y2]
