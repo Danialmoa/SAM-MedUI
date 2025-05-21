@@ -180,4 +180,9 @@ if __name__ == "__main__":
     data = dataset[0]
     print(data['image'].shape)
     print(data['mask'].shape)
+    print(data['points_coords'].shape)
+    print(data['points_labels'].shape)
+    print(data['boxes'].shape)
     
+    
+    print(data['points_coords'][0])

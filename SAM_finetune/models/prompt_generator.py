@@ -101,7 +101,7 @@ class SAMPointPromptGenerator:
     
     def _generate_positive_points(self, mask: np.ndarray) -> Tuple[List[List[float]], List[int]]:
         """Generate positive points inside the mask."""
-        y_coords, x_coords = np.where(mask)
+        y_coords, x_coords = np.where(mask > 0)
         if len(y_coords) == 0:
             return [], []
             

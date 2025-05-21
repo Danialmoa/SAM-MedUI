@@ -13,6 +13,7 @@ from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.models.loss import CombinedLoss
 from SAM_finetune.models.dataset import SAMDataset
 from SAM_finetune.utils.config import SAMFinetuneConfig, SAMDatasetConfig
+from SAM_finetune.utils.visualize import SAMVisualizer
 
 from SAM_finetune.utils.logger_func import setup_logger
 
@@ -71,7 +72,9 @@ class SAMTrainer:
         
         # Training state
         self.current_epoch = 0
-        self.best_val_loss = float('inf')
+        self.best_val_dice = 0
+        
+        # metrics
         self.dice_metric = DiceMetric(
             include_background=False, 
             reduction="mean", 
@@ -101,7 +104,7 @@ class SAMTrainer:
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
-            'best_val_loss': self.best_val_loss,
+            'best_val_dice': self.best_val_dice,
         }
         
         # Save regular checkpoint
@@ -123,7 +126,7 @@ class SAMTrainer:
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.current_epoch = checkpoint['epoch']
-        self.best_val_loss = checkpoint['best_val_loss']
+        self.best_val_dice = checkpoint['best_val_dice']
         logging.info(f"Loaded checkpoint from epoch {self.current_epoch}")
     
     def train_epoch(self) -> float:
@@ -154,17 +157,14 @@ class SAMTrainer:
                 
                 iou_predictions = []
                 for prompt_idx in range(num_prompts):
+                    prompt_data = {}
                     if batch['points_coords'] is not None:
-                        prompt_data = {
-                            'points': {
-                                'coords': batch['points_coords'][i][prompt_idx],
-                                'labels': batch['points_labels'][i][prompt_idx]
-                            }
+                        prompt_data['points'] = {
+                            'coords': batch['points_coords'][i][prompt_idx],
+                            'labels': batch['points_labels'][i][prompt_idx]
                         }
-                    else:
-                        prompt_data = {
-                            'boxes': batch['boxes'][i][prompt_idx]
-                        }
+                    if batch['boxes'] is not None:
+                        prompt_data['boxes'] = batch['boxes'][i][prompt_idx]
 
                     # Forward pass
                     pred_mask, iou_prediction = self.model.forward_one_image(
@@ -248,35 +248,45 @@ class SAMTrainer:
                     iou_predictions = []
                     
                     for prompt_idx in range(num_prompts):
-                        prompt_data = batch['prompts'][i][prompt_idx]
+                        prompt_data = {}
+                        if batch['points_coords'] is not None:
+                            prompt_data['points'] = {
+                                'coords': batch['points_coords'][i][prompt_idx],
+                                'labels': batch['points_labels'][i][prompt_idx]
+                            }
+                        if batch['boxes'] is not None:
+                            prompt_data['boxes'] = batch['boxes'][i][prompt_idx]
                         
                         pred_mask, iou_prediction = self.model.forward_one_image(
-                            image=image,
+                            image=images[i:i+1],
                             points=prompt_data.get('points'),
                             bounding_box=prompt_data.get('boxes'),
                             is_train=False
                         )
-                        
+
                         if prompt_idx == 0:
-                            image_pred_masks.append(pred_mask)
+                            image_pred_masks.append(pred_mask.squeeze(0))
                             iou_predictions.append(iou_prediction.item())
                         else:
-                            image_second_pred_masks.append(pred_mask)
-                    
-                    pred_masks = torch.stack(image_pred_masks, dim=0)
-                    if image_second_pred_masks:
-                        second_pred_masks = torch.stack(image_second_pred_masks, dim=0)
+                            image_second_pred_masks.append(pred_mask.squeeze(0))
                     
                     iou_scores.append(np.mean(iou_predictions))
-                    self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
+                    batch_pred_masks.append(image_pred_masks[0])
+                    if image_second_pred_masks:
+                        batch_second_pred_masks.append(image_second_pred_masks[0])
                     
-                    if num_prompts == 1:
-                        loss = self.criterion(pred=pred_masks, target=masks)
-                    else:
-                        loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
-                    batch_loss = loss
+                pred_masks = torch.stack(batch_pred_masks, dim=0)
+                if batch_second_pred_masks:
+                    second_pred_masks = torch.stack(batch_second_pred_masks, dim=0)
+                self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
                 
-                val_loss += batch_loss.item()
+                if num_prompts == 1:
+                    loss = self.criterion(pred=pred_masks, target=masks)
+                else:
+                    loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
+                batch_loss = loss
+            
+            val_loss += batch_loss.item()
         
         val_loss /= len(self.val_loader)
         epoch_dice = self.dice_metric.aggregate().item()
@@ -310,13 +320,13 @@ class SAMTrainer:
             # Save checkpoint
             is_best = val_dice > self.best_val_dice
             if is_best:
-                self.best_val_loss = val_loss
+                self.best_val_dice = val_dice
             
-            if epoch % self.config.save_interval == 0 or is_best:
+            if is_best:
                 self.save_checkpoint(is_best)
         
         wandb.finish()
-        logging.info(f"Training completed. Best validation loss: {self.best_val_loss:.4f}")
+        logging.info(f"Training completed. Best validation dice: {self.best_val_dice:.4f}")
         
         
 if __name__ == "__main__":
@@ -328,9 +338,9 @@ if __name__ == "__main__":
         model_type='vit_b',
         sam_path='checkpoints/sam_vit_b_01ec64.pth',
         num_epochs=100,
-        batch_size=4,
-        learning_rate=1e-4,
-        weight_decay=0.0001,
+        batch_size=2,
+        learning_rate=1e-5,
+        weight_decay=1e-4,
         lambda_dice=0.5,
         lambda_bce=0.2,
         lambda_kl=0.2,

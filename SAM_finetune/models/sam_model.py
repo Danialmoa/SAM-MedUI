@@ -18,7 +18,9 @@ class SAMModel(nn.Module):
         self.prompt_encoder = self.model.prompt_encoder.to(self.device)
         
         self.mask_decoder.multimask_output = False
-
+        del self.model
+        torch.cuda.empty_cache()
+        
     def load_model(self):
         sam = sam_model_registry[self.config.model_type](checkpoint=self.config.sam_path)
         sam.to(self.device)
@@ -77,7 +79,7 @@ class SAMModel(nn.Module):
         """Prepare bounding box for SAM model."""
         if len(bounding_box.shape) == 2:
             bounding_box = bounding_box[:, None, :]
-        return bounding_box
+        return bounding_box.to(self.device)
     
     def _prepare_points(self, points: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Prepare points for SAM model."""
@@ -88,5 +90,5 @@ class SAMModel(nn.Module):
             point_coords = point_coords.unsqueeze(0)
             point_labels = point_labels.unsqueeze(0)
             
-        return (point_coords, point_labels)
+        return (point_coords.to(self.device), point_labels.to(self.device))
     
