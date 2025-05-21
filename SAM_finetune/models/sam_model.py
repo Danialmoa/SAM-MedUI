@@ -2,12 +2,12 @@ import torch
 from segment_anything import sam_model_registry
 import torch.nn.functional as F
 import torch.nn as nn
-from typing import Tuple, List, Optional, Dict
+from typing import Tuple, List, Optional, Dict, Union
 
-from SAM_finetune.utils.config import SAMFinetuneConfig
+from SAM_finetune.utils.config import SAMFinetuneConfig, SAMGUIConfig
 
 class SAMModel(nn.Module):
-    def __init__(self, config: SAMFinetuneConfig):
+    def __init__(self, config: Union[SAMFinetuneConfig, SAMGUIConfig]):
         super().__init__()
         self.config = config
         self.device = torch.device(config.device)

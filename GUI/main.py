@@ -16,6 +16,7 @@ from model_handler import ModelHandler
 from canvas_view import CanvasView
 from thumbnail_gallery import ThumbnailGallery
 from SAM_finetune.utils.logger_func import setup_logger
+from SAM_finetune.utils.config import SAMGUIConfig
 
 logger = setup_logger()
 
@@ -1064,12 +1065,12 @@ class SAMGUI:
         return metadata
 
 if __name__ == "__main__":
-    config = {
-        'model_type': 'vit_b',
-        'sam_path': 'checkpoints/sam_vit_b_01ec64.pth',
-        'checkpoint_path': 'checkpoints/best_model.pth',
-        'device': 'cpu'
-    }
+    config = SAMGUIConfig(
+        model_type='vit_b',
+        sam_path='checkpoints/sam_vit_b_01ec64.pth',
+        checkpoint_path='checkpoints/best_model.pth',
+        device='cpu'
+    )
 
     root = Window(themename="darkly")
     app = SAMGUI(root, config)

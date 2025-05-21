@@ -70,6 +70,12 @@ class SAMFinetuneConfig:
     sigma: int = 1
     
     
-
+@dataclass
+class SAMGUIConfig:
+    """Configuration for SAMGUI."""
+    device: str = 'cuda'
+    model_type: str = 'vit_b'
+    sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
+    checkpoint_path: str = 'checkpoints/best_model.pth'
     
     

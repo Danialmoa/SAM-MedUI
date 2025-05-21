@@ -7,14 +7,14 @@ from SAM_finetune.models.dataset import PercentileNormalize
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.utils.logger_func import setup_logger
 from SAM_finetune.utils.z_score_norm import PercentileNormalize
-
+from SAM_finetune.utils.config import SAMGUIConfig
 logger = setup_logger()
 
 class ModelHandler:
     """Handles model loading and segmentation operations"""
-    def __init__(self, config):
+    def __init__(self, config: SAMGUIConfig):
         self.model = SAMModel(config)
-        self.device = config['device']
+        self.device = config.device
         
     def preprocess_image(self, image):
         preprocessor = PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5)
