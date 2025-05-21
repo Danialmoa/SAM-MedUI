@@ -16,10 +16,17 @@ class ModelHandler:
         self.model = SAMModel(config)
         self.device = config.device
         
+    def _precentile_normalize(self, image):
+        np_image = np.array(image)
+        lower_percentile = np.percentile(np_image, 0.5)
+        upper_percentile = np.percentile(np_image, 99.5)
+        normalized_image = (np_image - lower_percentile) / (upper_percentile - lower_percentile)
+        normalized_image = np.clip(normalized_image, 0, 1)
+        return normalized_image
+        
     def preprocess_image(self, image):
-        preprocessor = PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5)
-        processed_img = preprocessor(image)
-        processed_img = cv2.resize(processed_img, (1024, 1024))
+        normalized_image = self._precentile_normalize(image)
+        processed_img = cv2.resize(normalized_image, (1024, 1024))
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
     
@@ -85,7 +92,7 @@ class ModelHandler:
         
         with torch.no_grad():
             torch.set_num_threads(max(4, os.cpu_count() - 1))
-            pred_mask = self.model(
+            pred_mask, iou_pred = self.model.forward_one_image(
                 image=image_tensor.to(self.device),
                 bounding_box=bbox_tensor.to(self.device) if bbox_tensor is not None else None,
                 points=points_data if points_data is not None else None,
