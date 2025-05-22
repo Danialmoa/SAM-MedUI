@@ -17,12 +17,12 @@ class SAMModel(nn.Module):
         self.mask_decoder = self.model.mask_decoder.to(self.device)
         self.prompt_encoder = self.model.prompt_encoder.to(self.device)
         
-        self.mask_decoder.multimask_output = False
         del self.model
         torch.cuda.empty_cache()
         
     def load_model(self):
         sam = sam_model_registry[self.config.model_type](checkpoint=self.config.sam_path)
+        print("Load SAM model from ", self.config.sam_path)
         sam.to(self.device)
         if self.config.checkpoint_path:
             checkpoint = torch.load(self.config.checkpoint_path, map_location=self.device)
@@ -66,14 +66,14 @@ class SAMModel(nn.Module):
             dense_prompt_embeddings=dense_embeddings,
             multimask_output=False,
         )
-            
+
         high_res_masks = F.interpolate(
             low_res_masks,
             size=image_size,
             mode="bilinear",
             align_corners=False,
         )
-        return high_res_masks.squeeze(1), iou_prediction
+        return high_res_masks, iou_prediction
     
     def _prepare_box(self, bounding_box: torch.Tensor) -> torch.Tensor:
         """Prepare bounding box for SAM model."""

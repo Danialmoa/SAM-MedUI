@@ -41,17 +41,16 @@ class SAMDataset(torch.utils.data.Dataset):
                 A.RandomScale(scale_limit=0.1, p=0.3),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
-                A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
                 A.RandomGamma(gamma_limit=(80, 120), p=0.5), 
                 A.Resize(self.config.image_size[0], self.config.image_size[1]), 
-                PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
+                PercentileNormalize(lower_percentile=0.1, upper_percentile=99.9),
                 ToTensorV2()
             ], additional_targets={'mask': 'mask'})
         
         else:
             self.transform = A.Compose([
                 A.Resize(self.config.image_size[0], self.config.image_size[1]),
-                PercentileNormalize(lower_percentile=0.5, upper_percentile=99.5),
+                PercentileNormalize(lower_percentile=0.1, upper_percentile=99.9),
                 ToTensorV2()
             ], additional_targets={'mask': 'mask'})
         
@@ -125,12 +124,13 @@ class SAMDataset(torch.utils.data.Dataset):
         """
         image = np.array(Image.open(self.image_paths[idx]).convert('RGB'))
         mask = np.array(Image.open(self.mask_paths[idx]).convert('L'))
-        mask = np.where(mask > 128, 1, 0)
+        mask = np.where(mask > 0.5, 1, 0).astype(np.float32)
 
         transformed = self.transform(image=image, mask=mask)
         image = transformed['image']
         mask = transformed['mask']
         mask_np = mask.numpy()
+        mask = mask.unsqueeze(0)
         
         # Generate prompts
         points_coords = []

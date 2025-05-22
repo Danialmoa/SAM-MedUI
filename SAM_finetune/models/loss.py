@@ -23,7 +23,7 @@ class CombinedLoss(torch.nn.Module):
         
         
         self.dice = DiceLoss(
-            include_background=False,
+            include_background=True,
             sigmoid=True,
             squared_pred=True,
             reduction='mean'
@@ -50,14 +50,13 @@ class CombinedLoss(torch.nn.Module):
             return torch.tensor(0.0, device=pred.device)
         
         # Normalize per pixel
-        pred_probs = pred_sigmoid.view(-1, 1)
+        pred_sigmoid = pred_sigmoid.view(-1, 1)
         target_soft = target_soft.view(-1, 1)
         
-        valid_pixels = target_soft.view(-1) > 1e-8
-        
-        pred_dist = pred_probs[valid_pixels]
-        target_dist = target_soft[valid_pixels]
-        
+        zeros = torch.zeros_like(pred_sigmoid)
+        pred_dist = torch.cat([1 - pred_sigmoid, pred_sigmoid], dim=1)
+        target_dist = torch.cat([1 - target_soft, target_soft], dim=1)
+                
         kl = F.kl_div(
             F.log_softmax(pred_dist, dim=1),
             target_dist,
@@ -65,7 +64,7 @@ class CombinedLoss(torch.nn.Module):
             log_target=False
         )
         
-        return torch.clamp(kl, 0, 1)
+        return torch.clamp(kl, 0, 2)
     
     def diversity_loss(self, first_pred: torch.Tensor, second_pred: torch.Tensor) -> torch.Tensor:
         return self.MSE(first_pred, second_pred)

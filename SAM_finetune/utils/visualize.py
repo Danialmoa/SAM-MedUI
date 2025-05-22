@@ -68,13 +68,11 @@ class SAMVisualizer:
                 plt.plot([x_min, x_min], [y_max, y_min], color='red', linewidth=2)
             
         if self.point_coords is not None:
-            print(self.point_coords)
             for i in range(len(self.point_coords)):
                 if self.point_coords[i].ndim == 1:
                     plt.scatter(self.point_coords[i][0], self.point_coords[i][1], color='green', s=50, alpha=0.8)
                 else:
                     for j in range(len(self.point_coords[i])):
-                        print('---', self.point_coords[i][j][0], self.point_coords[i][j][1])
                         plt.scatter(self.point_coords[i][j][0], self.point_coords[i][j][1], color='green', s=50, alpha=0.8)
                 
         if self.text_prompt is not None:
@@ -110,7 +108,7 @@ if __name__ == "__main__":
         train=True
     )
     dataset = SAMDataset(config=train_dataset_config)
-    item = dataset[0]
+    item = dataset[3]
     image, mask, image_name, bounding_box, point_coords, point_labels = item['image'], item['mask'], item['image_name'], item['boxes'], item['points_coords'], item['points_labels']
     
     image_path = os.path.join(train_dataset_config.dataset_path, 'images', image_name)

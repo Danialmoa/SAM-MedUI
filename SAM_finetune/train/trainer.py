@@ -15,9 +15,6 @@ from SAM_finetune.models.dataset import SAMDataset
 from SAM_finetune.utils.config import SAMFinetuneConfig, SAMDatasetConfig
 from SAM_finetune.utils.visualize import SAMVisualizer
 
-from SAM_finetune.utils.logger_func import setup_logger
-
-logger = setup_logger()
 
 class SAMTrainer:
     def __init__(
@@ -60,8 +57,7 @@ class SAMTrainer:
         # Setup optimizer
         self.optimizer = torch.optim.Adam(
             self.model.parameters(),
-            lr=config.learning_rate,
-            weight_decay=config.weight_decay
+            lr=config.learning_rate
         )
         
         # Setup learning rate scheduler
@@ -76,10 +72,9 @@ class SAMTrainer:
         
         # metrics
         self.dice_metric = DiceMetric(
-            include_background=False, 
-            reduction="mean", 
-            get_not_nans=False
-        )
+            include_background=True, 
+            reduction="mean"
+            )
         
     def init_wandb(self):
         """Initialize Weights & Biases logging"""
@@ -118,7 +113,7 @@ class SAMTrainer:
         if is_best:
             best_path = os.path.join(self.output_dir, 'best_model.pth')
             torch.save(checkpoint, best_path)
-            logging.info(f"Saved best model checkpoint to {best_path}")
+            print(f"Saved best model checkpoint to {best_path}")
     
     def load_checkpoint(self, checkpoint_path: str):
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -127,19 +122,20 @@ class SAMTrainer:
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.current_epoch = checkpoint['epoch']
         self.best_val_dice = checkpoint['best_val_dice']
-        logging.info(f"Loaded checkpoint from epoch {self.current_epoch}")
+        print(f"Loaded checkpoint from epoch {self.current_epoch}")
     
     def train_epoch(self) -> float:
         self.model.train()
         self.dice_metric.reset()
         epoch_loss = 0.0
         iou_scores = []
+        dice_scores = []
         
         progress_bar = tqdm(self.train_loader, desc=f'Epoch {self.current_epoch}')
         for batch_idx, batch in enumerate(progress_bar):
             # Get data
             images = batch['image'].to(self.device)
-            masks = batch['mask'].float().to(self.device)
+            masks = batch['mask'].to(self.device)
 
             # Process each prompt in the batch
             batch_loss = 0
@@ -173,23 +169,28 @@ class SAMTrainer:
                         bounding_box=prompt_data.get('boxes'),
                         is_train=True
                     )
-
                     if prompt_idx == 0:
-                        image_pred_masks.append(pred_mask.squeeze(0))
+                        image_pred_masks.append(pred_mask)
                         iou_predictions.append(iou_prediction.item())
                     else:
-                        image_second_pred_masks.append(pred_mask.squeeze(0))
+                        image_second_pred_masks.append(pred_mask)
                 
                 iou_scores.append(np.mean(iou_predictions))
                 batch_pred_masks.append(image_pred_masks[0])
                 if image_second_pred_masks:
                     batch_second_pred_masks.append(image_second_pred_masks[0])
                 
-            pred_masks = torch.stack(batch_pred_masks, dim=0)
+            pred_masks = torch.cat(batch_pred_masks, dim=0)
+
             if batch_second_pred_masks:
-                second_pred_masks = torch.stack(batch_second_pred_masks, dim=0)
+                second_pred_masks = torch.cat(batch_second_pred_masks, dim=0)
             
-            self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
+            pred_masks = torch.sigmoid(pred_masks)
+            pred_masks_binary = (pred_masks > 0.5).float()
+                        
+            dice = self.dice_metric(y_pred=pred_masks_binary, y=masks)
+            dice_scores.append(dice.mean().item())
+            
             # Calculate loss
             if num_prompts == 1:
                 loss = self.criterion(pred=pred_masks, target=masks)
@@ -207,7 +208,7 @@ class SAMTrainer:
             progress_bar.set_postfix({'loss': batch_loss.item()})
         
         epoch_loss /= len(self.train_loader)
-        epoch_dice = self.dice_metric.aggregate().item()
+        epoch_dice = sum(dice_scores) / len(dice_scores)
         iou_score = sum(iou_scores) / len(iou_scores)
         
         wandb.log({
@@ -226,17 +227,18 @@ class SAMTrainer:
         self.dice_metric.reset()
         val_loss = 0.0
         iou_scores = []
-        
+        dice_scores = []
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc='Validation'):
                 images = batch['image'].to(self.device)
                 masks = batch['mask'].float().to(self.device)
+                batch_size = batch['image'].shape[0]
                 
                 batch_loss = 0
                 batch_pred_masks = []
                 batch_second_pred_masks = []
                 
-                for i, image in enumerate(images):
+                for i in range(batch_size):
                     if batch['points_coords'] is not None:
                         num_prompts = batch['points_coords'][i].shape[0]
                     else:
@@ -265,20 +267,25 @@ class SAMTrainer:
                         )
 
                         if prompt_idx == 0:
-                            image_pred_masks.append(pred_mask.squeeze(0))
+                            image_pred_masks.append(pred_mask)
                             iou_predictions.append(iou_prediction.item())
                         else:
-                            image_second_pred_masks.append(pred_mask.squeeze(0))
+                            image_second_pred_masks.append(pred_mask)
                     
                     iou_scores.append(np.mean(iou_predictions))
                     batch_pred_masks.append(image_pred_masks[0])
                     if image_second_pred_masks:
                         batch_second_pred_masks.append(image_second_pred_masks[0])
                     
-                pred_masks = torch.stack(batch_pred_masks, dim=0)
+                pred_masks = torch.cat(batch_pred_masks, dim=0)
                 if batch_second_pred_masks:
-                    second_pred_masks = torch.stack(batch_second_pred_masks, dim=0)
-                self.dice_metric(y_pred=torch.sigmoid(pred_masks), y=masks)
+                    second_pred_masks = torch.cat(batch_second_pred_masks, dim=0)
+                
+                pred_masks = torch.sigmoid(pred_masks)
+                pred_masks_binary = (pred_masks > 0.5).float()
+                
+                dice = self.dice_metric(y_pred=pred_masks_binary, y=masks)
+                dice_scores.append(dice.mean().item())
                 
                 if num_prompts == 1:
                     loss = self.criterion(pred=pred_masks, target=masks)
@@ -286,10 +293,10 @@ class SAMTrainer:
                     loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
                 batch_loss = loss
             
-            val_loss += batch_loss.item()
+                val_loss += batch_loss.item()
         
         val_loss /= len(self.val_loader)
-        epoch_dice = self.dice_metric.aggregate().item()
+        epoch_dice = sum(dice_scores) / len(dice_scores)
         iou_score = sum(iou_scores) / len(iou_scores)
         
         wandb.log({
@@ -301,21 +308,21 @@ class SAMTrainer:
         return val_loss, epoch_dice
     
     def train(self, num_epochs: int):
-        logging.info(f"Starting training for {num_epochs} epochs")
+        print(f"Starting training for {num_epochs} epochs")
         
         for epoch in range(self.current_epoch, num_epochs):
             self.current_epoch = epoch
             
             # Train one epoch
             train_loss, train_dice = self.train_epoch()
-            logging.info(f"Epoch {epoch}: Train Loss = {train_loss:.4f}, Train Dice = {train_dice:.4f}")
+            print(f"Epoch {epoch}: Train Loss = {train_loss:.4f}, Train Dice = {train_dice:.4f}")
             
             # Validate
             val_loss, val_dice = self.validate()
             logging.info(f"Epoch {epoch}: Validation Loss = {val_loss:.4f}, Validation Dice = {val_dice:.4f}")
             
             # Update learning rate
-            self.scheduler.step(val_loss)
+            self.scheduler.step()
             
             # Save checkpoint
             is_best = val_dice > self.best_val_dice
@@ -326,7 +333,7 @@ class SAMTrainer:
                 self.save_checkpoint(is_best)
         
         wandb.finish()
-        logging.info(f"Training completed. Best validation dice: {self.best_val_dice:.4f}")
+        print(f"Training completed. Best validation dice: {self.best_val_dice:.4f}")
         
         
 if __name__ == "__main__":
@@ -346,7 +353,8 @@ if __name__ == "__main__":
         lambda_kl=0.2,
         lambda_div=0.1,
         sigma=1,
-        disable_wandb=False
+        disable_wandb=False,
+        num_workers=1
     )
     train_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/train/',
@@ -358,7 +366,7 @@ if __name__ == "__main__":
         box_prompt=True,
         enable_direction_aug=True,
         enable_size_aug=True,
-        number_of_prompts=2,
+        number_of_prompts=1,
         image_size=(1024, 1024),
         train=True
     )
@@ -380,5 +388,6 @@ if __name__ == "__main__":
 
     train_dataset = SAMDataset(train_dataset_config)
     val_dataset = SAMDataset(val_dataset_config)
+
     trainer = SAMTrainer(finetune_config, train_dataset, val_dataset)
     trainer.train(finetune_config.num_epochs)

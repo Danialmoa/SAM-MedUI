@@ -27,7 +27,3 @@ class PercentileNormalize(ImageOnlyTransform):
         normalized = (image_clipped - mean) / (std + 1e-8)
         return normalized
     
-    def get_transform_init_args_names(self) -> tuple:
-        """Required by albumentations."""
-        return ('lower_percentile', 'upper_percentile', 'p')
-        
