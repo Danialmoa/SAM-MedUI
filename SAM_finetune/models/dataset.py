@@ -127,7 +127,7 @@ class SAMDataset(torch.utils.data.Dataset):
         mask = np.where(mask > 0.5, 1, 0).astype(np.float32)
 
         # Retry 3 times if the mask is empty (because of the transform)
-        for _ in range(3):
+        for _ in range(5):
             transformed = self.transform(image=image, mask=mask)
             image = transformed['image']
             mask = transformed['mask']
