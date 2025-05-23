@@ -193,9 +193,9 @@ class SAMTrainer:
             
             # Calculate loss
             if num_prompts == 1:
-                loss = self.criterion(pred=pred_masks, target=masks)
+                loss = self.criterion(image=images, pred=pred_masks, target=masks)
             else:
-                loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
+                loss = self.criterion(image=images, pred=pred_masks, target=masks, second_pred=second_pred_masks)
             batch_loss = loss            
             
             # Backward pass
@@ -212,9 +212,10 @@ class SAMTrainer:
         iou_score = sum(iou_scores) / len(iou_scores)
         
         wandb.log({
-            "train_loss": epoch_loss,
-            "train_dice": epoch_dice,
-            "train_iou": iou_score
+            "/train/loss": epoch_loss,
+            "/train/dice": epoch_dice,
+            "/train/iou": iou_score,
+            "learning_rate": self.scheduler.get_last_lr()[0]
         }, step=self.current_epoch)
         
         return epoch_loss, epoch_dice
@@ -288,9 +289,9 @@ class SAMTrainer:
                 dice_scores.append(dice.mean().item())
                 
                 if num_prompts == 1:
-                    loss = self.criterion(pred=pred_masks, target=masks)
+                    loss = self.criterion(image=images, pred=pred_masks, target=masks)
                 else:
-                    loss = self.criterion(pred=pred_masks, target=masks, second_pred=second_pred_masks)
+                    loss = self.criterion(image=images, pred=pred_masks, target=masks, second_pred=second_pred_masks)
                 batch_loss = loss
             
                 val_loss += batch_loss.item()
@@ -300,9 +301,9 @@ class SAMTrainer:
         iou_score = sum(iou_scores) / len(iou_scores)
         
         wandb.log({
-            "val_loss": val_loss,
-            "val_dice": epoch_dice,
-            "val_iou": iou_score
+            "/val/loss": val_loss,
+            "/val/dice": epoch_dice,
+            "/val/iou": iou_score
         }, step=self.current_epoch)
         
         return val_loss, epoch_dice
@@ -338,6 +339,7 @@ class SAMTrainer:
         
 if __name__ == "__main__":
 
+
     finetune_config = SAMFinetuneConfig(
         device='cuda',
         wandb_project_name='SAM_finetune',
@@ -352,9 +354,10 @@ if __name__ == "__main__":
         lambda_bce=0.2,
         lambda_kl=0.2,
         lambda_div=0.1,
+        lambda_bce_soft=0.1,
         sigma=1,
         disable_wandb=False,
-        num_workers=1
+        num_workers=0
     )
     train_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/train/',

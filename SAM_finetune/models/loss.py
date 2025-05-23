@@ -20,7 +20,7 @@ class CombinedLoss(torch.nn.Module):
         self.lambda_bce = config.lambda_bce
         self.lambda_kl = config.lambda_kl
         self.lambda_div = config.lambda_div
-        
+        self.lambda_bce_soft = config.lambda_bce_soft
         
         self.dice = DiceLoss(
             include_background=True,
@@ -41,6 +41,16 @@ class CombinedLoss(torch.nn.Module):
         if soft_mask.max() < 1e-8:
             return torch.zeros_like(mask)
         return soft_mask / (soft_mask.max() + 1e-8)
+    
+    def soft_label_image(self, image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        image_np = image.cpu().numpy()
+        mask_np = mask.cpu().numpy()
+        map_image = np.zeros_like(image_np)
+        map_image[mask_np > 0] = 1
+        
+        # min max normalization
+        soft_mask = (map_image - map_image.min()) / (map_image.max() - map_image.min() + 1e-8)
+        return torch.tensor(soft_mask).to(mask.device)
     
     def kl_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         pred_sigmoid = torch.sigmoid(pred)
@@ -71,6 +81,7 @@ class CombinedLoss(torch.nn.Module):
 
     def forward(
         self, 
+        image: torch.Tensor,
         pred: torch.Tensor, 
         target: torch.Tensor, 
         second_pred: Optional[torch.Tensor] = None
@@ -80,23 +91,26 @@ class CombinedLoss(torch.nn.Module):
         bce_loss = self.BCE(pred, target)
         kl = self.kl_loss(pred, target)
         
+        bce_soft_loss = self.BCE(pred, self.soft_label_image(image, target))
+        
         if second_pred is not None:
             div_loss = self.diversity_loss(pred, second_pred)
         else:
             div_loss = torch.tensor(0.0, device=pred.device)
 
-        lambdas = np.array([self.lambda_dice, self.lambda_bce, self.lambda_kl, self.lambda_div])
+        lambdas = np.array([self.lambda_dice, self.lambda_bce, self.lambda_kl, self.lambda_div, self.lambda_bce_soft])
         
         if lambdas.sum() > 0:
             lambdas = lambdas / lambdas.sum()
         else:
-            lambdas = np.array([1.0, 0.0, 0.0, 0.0])
+            lambdas = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
 
         total_loss = (
             lambdas[0] * dice_loss + 
             lambdas[1] * bce_loss + 
             lambdas[2] * kl + 
-            lambdas[3] * div_loss
+            lambdas[3] * div_loss +
+            lambdas[4] * bce_soft_loss
         )
         
         return total_loss
@@ -110,10 +124,12 @@ if __name__ == "__main__":
         lambda_bce=0.2,
         lambda_kl=0.2,
         lambda_div=0.1,
+        lambda_bce_soft=0.1,
         sigma=1
     )
     loss = CombinedLoss(config)
     pred = torch.randn(1, 1, 128, 128)
     target = torch.randn(1, 1, 128, 128)
     second_pred = torch.randn(1, 1, 128, 128)
-    print(loss(pred, target, second_pred))
+    image = torch.randn(1, 1, 128, 128)
+    print(loss(pred, target, second_pred, image))

@@ -59,14 +59,15 @@ class SAMFinetuneConfig:
     num_epochs: int = 10
     learning_rate: float = 1e-4
     weight_decay: float = 0.0001
-    num_workers: int = 2
+    num_workers: int = 0
     disable_wandb: bool = False
     
     #Loss
-    lambda_dice: float = 0.5
+    lambda_dice: float = 0.4
     lambda_bce: float = 0.2
     lambda_kl: float = 0.2
     lambda_div: float = 0.1
+    lambda_bce_soft: float = 0.1
     sigma: int = 1
     
     
