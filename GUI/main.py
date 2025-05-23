@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 from ttkbootstrap.tooltip import ToolTip
 import pydicom
 from pydicom.errors import InvalidDicomError
+import csv
 
 from model_handler import ModelHandler
 from canvas_view import CanvasView
@@ -29,7 +30,7 @@ class SAMGUI:
         # Configure root window
         self.root = root
         self.root.title("SAM Segmentation Tool")
-        self.root.geometry("800x900")
+        self.root.geometry("1000x900")
         
         # Initialize components
         self.model_handler = ModelHandler(config)
@@ -242,6 +243,15 @@ class SAMGUI:
         # Add a separator
         Label(bottom_row, text="|", bootstyle="secondary").pack(side=tk.LEFT, padx=5)
         
+        # Add export button
+        self.export_button = Button(
+            top_row,
+            text="Export Results",
+            command=self.export_results,
+            bootstyle="danger"
+        )
+        self.export_button.pack(side=tk.LEFT, padx=5)
+        
         # Add gamma correction controls to bottom row
         gamma_frame = Frame(bottom_row)
         gamma_frame.pack(side=tk.LEFT, padx=3, fill=tk.Y)
@@ -282,6 +292,7 @@ class SAMGUI:
         ToolTip(self.save_all_button, text="Save all generated segmentation masks")
         ToolTip(gamma_slider, text="Adjust gamma to enhance image visibility (values < 1.0 brighten dark areas, values > 1.0 darken bright areas)")
         ToolTip(reset_gamma_btn, text="Reset gamma to default value (1.0)")
+        ToolTip(self.export_button, text="Export segmentation results to CSV")
     
     def setup_bindings(self):
         """Set up keyboard and other bindings"""
@@ -746,6 +757,10 @@ class SAMGUI:
         # Calculate and display segment stats
         pixel_count, mass = self.canvas_view.update_stats_overlay(resize_factor)
         
+        # After calculating mass in the existing code:
+        if self.thumbnail_gallery.current_patient:
+            self.thumbnail_gallery.update_patient_mass(self.thumbnail_gallery.current_patient, mass)
+        
         segmentation_time = time.time() - segmentation_start_time
         logger.info(f"Segmentation complete. Time taken: {segmentation_time:.2f} seconds")
         self.update_status(f"Segmentation complete: {pixel_count} pixels, {mass:.2f} mass")
@@ -775,6 +790,13 @@ class SAMGUI:
     def clear_mask(self):
         """Clear only the generated segmentation mask, keeping prompts"""
         if self.current_mask is not None:
+            if self.thumbnail_gallery.current_patient:
+                current_patient = self.thumbnail_gallery.current_patient
+                if current_patient in self.thumbnail_gallery.patient_masses:
+                    # Remove this image's mass from the patient masses dictionary
+                    if self.image_path in self.thumbnail_gallery.patient_masses[current_patient]:
+                        del self.thumbnail_gallery.patient_masses[current_patient][self.image_path]
+                        logger.info(f"Removed mass for image {self.image_path} from patient {current_patient}")
             self.current_mask = None
             self.canvas_view.current_mask = None
             
@@ -782,6 +804,7 @@ class SAMGUI:
             if self.image_path in self.saved_masks:
                 del self.saved_masks[self.image_path]
             
+            self.canvas_view.update_stats_overlay()
             self.redraw_canvas()
             self.update_status("Segmentation mask cleared")
             self.mass_label_var.set("No segmentation")
@@ -1091,6 +1114,50 @@ class SAMGUI:
         if self.current_mask is not None:
             self.mask_temporarily_hidden = False
             self.redraw_canvas()
+
+    def export_results(self):
+        """Export segmentation results to CSV"""
+        if not self.thumbnail_gallery.patient_masses:
+            self.update_status("No segmentation results to export")
+            return
+        
+        # Ask user where to save the CSV
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            initialfile=f"segmentation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                # Write header
+                writer.writerow(['Patient ID', 'Image Name', 'Slice', 'Mass'])
+                
+                # Write data for each patient
+                for patient_id, slice_masses in self.thumbnail_gallery.patient_masses.items():
+                    for image_path, mass in slice_masses.items():
+                        # Extract image name and slice info
+                        base_name = os.path.basename(image_path.split('#')[0])
+                        slice_info = "N/A"
+                        if '#slice=' in image_path:
+                            slice_info = image_path.split('#slice=')[1]
+                        
+                        writer.writerow([
+                            patient_id,
+                            base_name,
+                            slice_info,
+                            f"{mass:.2f}"
+                        ])
+        
+            self.update_status(f"Results exported to {file_path}")
+            logger.info(f"Segmentation results exported to {file_path}")
+        except Exception as e:
+            self.update_status(f"Error exporting results: {str(e)}")
+            logger.error(f"Error exporting results: {e}")
 
 if __name__ == "__main__":
     config = SAMGUIConfig(

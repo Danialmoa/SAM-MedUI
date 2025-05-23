@@ -24,6 +24,9 @@ class ThumbnailGallery:
         self.current_patient = None  # Currently selected patient
         self.top_gallery_frame = None  # Will be created later
         
+        self.patient_masses = {}  # Dict to store total mass per patient
+        self.patient_mass_labels = {}  # Dict to store mass display labels
+        
         # Labels for the patient list
         self.patient_label = Label(
             self.sidebar_frame, 
@@ -420,3 +423,18 @@ class ThumbnailGallery:
             return image
         except Exception as e:
             logger.error(f"Error loading NIfTI image: {e}")
+
+    def update_patient_mass(self, patient_id, slice_mass):
+        """Update the total mass for a patient"""
+        if patient_id not in self.patient_masses:
+            self.patient_masses[patient_id] = {}
+        
+        # Get the current image path
+        if self.current_image_index >= 0 and self.current_image_index < len(self.image_files):
+            current_path = self.image_files[self.current_image_index]
+            # Update or add the mass for this slice
+            self.patient_masses[patient_id][current_path] = slice_mass
+            
+            # Log the update for debugging
+            logger.info(f"Updated mass for patient {patient_id}, image {current_path}: {slice_mass:.2f}")
+            logger.info(f"Total patient mass: {sum(self.patient_masses[patient_id].values()):.2f}")
