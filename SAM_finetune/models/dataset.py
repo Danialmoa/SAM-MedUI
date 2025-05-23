@@ -126,10 +126,15 @@ class SAMDataset(torch.utils.data.Dataset):
         mask = np.array(Image.open(self.mask_paths[idx]).convert('L'))
         mask = np.where(mask > 0.5, 1, 0).astype(np.float32)
 
-        transformed = self.transform(image=image, mask=mask)
-        image = transformed['image']
-        mask = transformed['mask']
-        mask_np = mask.numpy()
+        # Retry 3 times if the mask is empty (because of the transform)
+        for _ in range(3):
+            transformed = self.transform(image=image, mask=mask)
+            image = transformed['image']
+            mask = transformed['mask']
+            mask_np = mask.numpy()
+            if mask_np.sum() > 0:
+                break
+        
         mask = mask.unsqueeze(0)
         
         # Generate prompts

@@ -41,8 +41,8 @@ class SAMBoxPromptGenerator:
     def _apply_direction_augmentation(self, box: np.ndarray, mask_shape: Tuple[int, int]) -> np.ndarray:
         """Apply directional augmentation to the box."""
         x_min, y_min, x_max, y_max = box
-        offset_x = np.random.randint(-5, 6)
-        offset_y = np.random.randint(-5, 6)
+        offset_x = np.random.randint(-10, 11)
+        offset_y = np.random.randint(-10, 11)
         
         x_min = max(0, x_min + offset_x)
         y_min = max(0, y_min + offset_y)
@@ -54,8 +54,8 @@ class SAMBoxPromptGenerator:
     def _apply_size_augmentation(self, box: np.ndarray, mask_shape: Tuple[int, int]) -> np.ndarray:
         """Apply size augmentation to the box."""
         x_min, y_min, x_max, y_max = box
-        expand_factor_x = np.random.uniform(1, 1.2)
-        expand_factor_y = np.random.uniform(1, 1.2)
+        expand_factor_x = np.random.uniform(1, 1.3)
+        expand_factor_y = np.random.uniform(1, 1.3)
         
         center_x = (x_min + x_max) / 2
         center_y = (y_min + y_max) / 2
