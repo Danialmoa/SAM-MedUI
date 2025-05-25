@@ -129,7 +129,7 @@ if __name__ == "__main__":
     config = PreprocessorConfig(
         dataset_path="./SAM_finetune/data",
         replace=True,
-        enable_morphological_closing=True,
+        enable_morphological_closing=False,
         black_boundaries=True
     )
     list_of_paths = ['train', 'val']
