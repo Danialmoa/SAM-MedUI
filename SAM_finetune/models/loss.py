@@ -16,7 +16,7 @@ class CombinedLoss(torch.nn.Module):
     ):
         super().__init__()
         self.smooth = 1e-6
-        self.lambda_dice = config.lambda_dice
+        self.lambda_dice = 1 - config.lambda_bce - config.lambda_bce_soft - config.lambda_kl - config.lambda_div
         self.lambda_bce = config.lambda_bce
         self.lambda_kl = config.lambda_kl
         self.lambda_div = config.lambda_div
@@ -120,7 +120,6 @@ class CombinedLoss(torch.nn.Module):
 if __name__ == "__main__":
     config = SAMFinetuneConfig(
         device='cpu',
-        lambda_dice=0.5,
         lambda_bce=0.2,
         lambda_kl=0.2,
         lambda_div=0.1,

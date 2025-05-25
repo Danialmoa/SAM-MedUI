@@ -86,7 +86,7 @@ class SAMTrainer:
                 "learning_rate": self.config.learning_rate,
                 "batch_size": self.config.batch_size,
                 "model_type": self.config.model_type,
-                "lambda_dice": self.config.lambda_dice,
+                "lambda_dice": 1 - self.config.lambda_bce - self.config.lambda_bce_soft - self.config.lambda_kl - self.config.lambda_div,
                 "lambda_bce": self.config.lambda_bce,
                 "lambda_kl": self.config.lambda_kl,
                 "lambda_div": self.config.lambda_div,
@@ -341,7 +341,6 @@ class SAMTrainer:
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lambda_dice', type=float, default=0.4)
     parser.add_argument('--lambda_bce', type=float, default=0.0)
     parser.add_argument('--lambda_kl', type=float, default=0.0)
     parser.add_argument('--lambda_div', type=float, default=0.0)
@@ -351,14 +350,14 @@ if __name__ == "__main__":
     finetune_config = SAMFinetuneConfig(
         device='cuda',
         wandb_project_name='SAM_finetune',
-        run_name='run_1',
+        run_name='run_torchio',
         model_type='vit_b',
         sam_path='checkpoints/sam_vit_b_01ec64.pth',
         num_epochs=20,
         batch_size=2,
         learning_rate=1e-5,
         weight_decay=1e-4,
-        lambda_dice=args.lambda_dice,
+        lambda_dice=1 - args.lambda_bce - args.lambda_bce_soft - args.lambda_kl - args.lambda_div,
         lambda_bce=args.lambda_bce,
         lambda_kl=args.lambda_kl,
         lambda_div=args.lambda_div,
@@ -370,7 +369,7 @@ if __name__ == "__main__":
     train_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/train/',
         remove_nonscar=True,
-        sample_size=400,
+        sample_size=None,
         point_prompt=True,
         point_prompt_types=['positive'],
         number_of_points=3,
@@ -385,7 +384,7 @@ if __name__ == "__main__":
     val_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/val/',
         remove_nonscar=True,
-        sample_size=100,
+        sample_size=None,
         point_prompt=True,
         point_prompt_types=['positive'],
         number_of_points=3,
