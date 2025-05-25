@@ -11,6 +11,8 @@ from albumentations.pytorch import ToTensorV2
 from albumentations.core.transforms_interface import ImageOnlyTransform
 from scipy.ndimage import distance_transform_edt
 
+import torchio as tio
+
 
 from SAM_finetune.utils.config import SAMDatasetConfig
 from SAM_finetune.models.prompt_generator import SAMBoxPromptGenerator, SAMPointPromptGenerator
@@ -34,21 +36,57 @@ class SAMDataset(torch.utils.data.Dataset):
             number_of_points=self.config.number_of_points
         )
         
+        # TorchIO transforms for medical imaging augmentations
         if self.config.train:
-            self.transform = A.Compose([
-                A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=1),
-                A.Rotate(limit=15, p=0.3),
-                A.RandomScale(scale_limit=0.1, p=0.3),
-                A.HorizontalFlip(p=0.5),
-                A.VerticalFlip(p=0.5),
-                A.RandomGamma(gamma_limit=(80, 120), p=0.5), 
+            self.torchio_transform = tio.Compose([
+                tio.RandomAffine(
+                    scales=(0.9, 1.1),
+                    degrees=(-15, 15),
+                    translation=(-10, 10),
+                    p=0.5
+                ),
+                tio.RandomElasticDeformation(
+                    num_control_points=7,
+                    max_displacement=7.5,
+                    locked_borders=2,
+                    p=0.3
+                ),
+                tio.RandomMotion(
+                    degrees=2,
+                    translation=2,
+                    num_transforms=2,
+                    p=0.2
+                ),
+                tio.RandomBiasField(
+                    coefficients=0.5,
+                    order=3,
+                    p=0.3
+                ),
+                tio.RandomNoise(
+                    mean=0,
+                    std=(0, 0.1),
+                    p=0.2
+                ),
+                tio.RandomBlur(
+                    std=(0, 2),
+                    p=0.2
+                ),
+                tio.RandomGamma(
+                    log_gamma=(-0.3, 0.3),
+                    p=0.3
+                ),
+            ])
+            
+            # Albumentations for final preprocessing
+            self.albumentations_transform = A.Compose([
                 A.Resize(self.config.image_size[0], self.config.image_size[1]), 
                 PercentileNormalize(lower_percentile=0.1, upper_percentile=99.9),
                 ToTensorV2()
             ], additional_targets={'mask': 'mask'})
         
         else:
-            self.transform = A.Compose([
+            self.torchio_transform = None
+            self.albumentations_transform = A.Compose([
                 A.Resize(self.config.image_size[0], self.config.image_size[1]),
                 PercentileNormalize(lower_percentile=0.1, upper_percentile=99.9),
                 ToTensorV2()
@@ -128,7 +166,7 @@ class SAMDataset(torch.utils.data.Dataset):
 
         # Retry 3 times if the mask is empty (because of the transform)
         for _ in range(5):
-            transformed = self.transform(image=image, mask=mask)
+            transformed = self.albumentations_transform(image=image, mask=mask)
             image = transformed['image']
             mask = transformed['mask']
             mask_np = mask.numpy()
