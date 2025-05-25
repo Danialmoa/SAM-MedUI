@@ -178,8 +178,16 @@ class CanvasView:
         pixel_count = np.sum(mask) / resize_factor
         mass = pixel_count * self.pixel_mass_factor
         
+        # Get total mass from parent's thumbnail gallery
+        total_mass = 0
+        if hasattr(self.parent, 'thumbnail_gallery'):
+            current_patient = self.parent.thumbnail_gallery.current_patient
+            if current_patient and current_patient in self.parent.thumbnail_gallery.patient_masses:
+                patient_masses = self.parent.thumbnail_gallery.patient_masses[current_patient]
+                total_mass = sum(patient_masses.values())
+        
         # Create text for overlay
-        stats_text = f"Pixels: {pixel_count:.0f}\nMass: {mass:.2f}"
+        stats_text = f"Pixels: {pixel_count:.0f}\nMass: {mass:.2f}\nTotal Mass: {total_mass:.2f}"
         
         # Add text overlay to canvas
         self.stats_text_id = self.canvas.create_text(
@@ -205,7 +213,7 @@ class CanvasView:
         
         # Log the information
         image_name = os.path.basename(self.image_path) if self.image_path else "unknown"
-        logger.info(f"Segment stats for {image_name}: {pixel_count} pixels, mass = {mass:.2f}")
+        logger.info(f"Segment stats for {image_name}: {pixel_count} pixels, mass = {mass:.2f}, total mass = {total_mass:.2f}")
         
         return pixel_count, mass
 
