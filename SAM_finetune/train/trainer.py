@@ -8,6 +8,7 @@ from datetime import datetime
 import wandb
 import numpy as np
 from monai.metrics import DiceMetric
+import argparse
 
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.models.loss import CombinedLoss
@@ -215,7 +216,7 @@ class SAMTrainer:
             "/train/loss": epoch_loss,
             "/train/dice": epoch_dice,
             "/train/iou": iou_score,
-            "learning_rate": self.scheduler.get_last_lr()[0]
+            "/train/learning_rate": self.scheduler.get_last_lr()[0]
         }, step=self.current_epoch)
         
         return epoch_loss, epoch_dice
@@ -320,7 +321,7 @@ class SAMTrainer:
             
             # Validate
             val_loss, val_dice = self.validate()
-            logging.info(f"Epoch {epoch}: Validation Loss = {val_loss:.4f}, Validation Dice = {val_dice:.4f}")
+            print(f"Epoch {epoch}: Validation Loss = {val_loss:.4f}, Validation Dice = {val_dice:.4f}")
             
             # Update learning rate
             self.scheduler.step()
@@ -339,6 +340,13 @@ class SAMTrainer:
         
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lambda_dice', type=float, default=0.4)
+    parser.add_argument('--lambda_bce', type=float, default=0.0)
+    parser.add_argument('--lambda_kl', type=float, default=0.0)
+    parser.add_argument('--lambda_div', type=float, default=0.0)
+    parser.add_argument('--lambda_bce_soft', type=float, default=0.0)
+    args = parser.parse_args()
 
     finetune_config = SAMFinetuneConfig(
         device='cuda',
@@ -346,15 +354,15 @@ if __name__ == "__main__":
         run_name='run_1',
         model_type='vit_b',
         sam_path='checkpoints/sam_vit_b_01ec64.pth',
-        num_epochs=100,
+        num_epochs=20,
         batch_size=2,
         learning_rate=1e-5,
         weight_decay=1e-4,
-        lambda_dice=0.5,
-        lambda_bce=0.2,
-        lambda_kl=0.2,
-        lambda_div=0.1,
-        lambda_bce_soft=0.1,
+        lambda_dice=args.lambda_dice,
+        lambda_bce=args.lambda_bce,
+        lambda_kl=args.lambda_kl,
+        lambda_div=args.lambda_div,
+        lambda_bce_soft=args.lambda_bce_soft,
         sigma=1,
         disable_wandb=False,
         num_workers=0
@@ -362,7 +370,7 @@ if __name__ == "__main__":
     train_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/train/',
         remove_nonscar=True,
-        sample_size=None,
+        sample_size=400,
         point_prompt=True,
         point_prompt_types=['positive'],
         number_of_points=3,
@@ -377,7 +385,7 @@ if __name__ == "__main__":
     val_dataset_config = SAMDatasetConfig(
         dataset_path='SAM_finetune/data/val/',
         remove_nonscar=True,
-        sample_size=None,
+        sample_size=100,
         point_prompt=True,
         point_prompt_types=['positive'],
         number_of_points=3,

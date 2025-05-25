@@ -7,7 +7,7 @@ import numpy as np
 from typing import Optional
 from scipy.ndimage import gaussian_filter
 from SAM_finetune.utils.config import SAMFinetuneConfig
-
+import wandb
 
 class CombinedLoss(torch.nn.Module):
     def __init__(
@@ -43,14 +43,14 @@ class CombinedLoss(torch.nn.Module):
         return soft_mask / (soft_mask.max() + 1e-8)
     
     def soft_label_image(self, image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        image_np = image.cpu().numpy()
-        mask_np = mask.cpu().numpy()
-        map_image = np.zeros_like(image_np)
-        map_image[mask_np > 0] = 1
+        image_single = image[:, 0:1, :, :]
+        
+        map_image = torch.zeros_like(mask)
+        map_image[mask > 0] = 1
         
         # min max normalization
         soft_mask = (map_image - map_image.min()) / (map_image.max() - map_image.min() + 1e-8)
-        return torch.tensor(soft_mask).to(mask.device)
+        return soft_mask
     
     def kl_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         pred_sigmoid = torch.sigmoid(pred)
