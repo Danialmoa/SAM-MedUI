@@ -263,10 +263,10 @@ class SAMGUI:
             variable=self.gamma_value,
             command=self.update_gamma,
             bootstyle="success",
-            from_=0.5,
-            to=1.5,
+            from_=0.2,
+            to=1.7,
             orient=tk.HORIZONTAL,
-            length=120,
+            length=140,
             value=1.0
         )
         gamma_slider.pack(side=tk.LEFT, padx=3)

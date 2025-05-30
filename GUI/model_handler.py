@@ -99,7 +99,7 @@ class ModelHandler:
                 is_train=False
             )
         
-        pred_mask = pred_mask.cpu().numpy().squeeze() > 0.5
+        pred_mask = pred_mask.cpu().numpy().squeeze() > 0.7
 
         return pred_mask.astype(np.uint8)
 
