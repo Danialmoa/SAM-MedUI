@@ -844,7 +844,9 @@ class SAMGUI:
         center = np.array(segmentation_image.shape) // 2
         cropped_image = segmentation_image[center[0]-min_dim//2:center[0]+min_dim//2, center[1]-min_dim//2:center[1]+min_dim//2]
 
-        resize_factor = 1024.0 / min_dim
+        original_min_dim = min(self.canvas_view.original_image.shape[0], self.canvas_view.original_image.shape[1])
+        
+        resize_factor = 1024.0 / original_min_dim
         return cropped_image, resize_factor
     
     def clear_prompts(self):
