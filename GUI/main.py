@@ -44,6 +44,7 @@ class SAMGUI:
         self.bbox_start_x = None
         self.bbox_start_y = None
         self.current_mask = None
+        self.current_raw_prediction = None
         self.pixel_mass_factor = 1.0
         self.img_metadata = {}
         
@@ -53,6 +54,7 @@ class SAMGUI:
         self.mass_factor_var = tk.StringVar(value="1.0")
         self.mass_label_var = tk.StringVar(value="No segmentation")
         self.gamma_value = tk.DoubleVar(value=1.0)
+        self.confidence_value = tk.DoubleVar(value=0.7)
         
         self.mask_temporarily_hidden = False
         
@@ -79,8 +81,8 @@ class SAMGUI:
         # Right side content
         self.right_frame = Frame(self.main_pane, bootstyle="dark")
         
-        # Control frame (top of right side) - make it taller for the image gallery
-        self.control_frame = Frame(self.right_frame, bootstyle="dark", height=220)
+        # Control frame (top of right side) - make it taller for the image gallery and three rows of controls
+        self.control_frame = Frame(self.right_frame, bootstyle="dark", height=280)
         self.control_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         
         # Create top toolbar with navigation and actions FIRST (above images)
@@ -160,9 +162,12 @@ class SAMGUI:
         toolbar = LabelFrame(self.control_frame, text="Controls", bootstyle="white")
         toolbar.pack(fill=tk.X, expand=True, padx=5, pady=5)
         
-        # Create two separate frames for the rows
+        # Create three separate frames for the rows
         top_row = Frame(toolbar)
         top_row.pack(fill=tk.X, expand=True, padx=5, pady=2)
+        
+        middle_row = Frame(toolbar)
+        middle_row.pack(fill=tk.X, expand=True, padx=5, pady=2)
         
         bottom_row = Frame(toolbar)
         bottom_row.pack(fill=tk.X, expand=True, padx=5, pady=2)
@@ -215,34 +220,6 @@ class SAMGUI:
         )
         self.clear_mask_button.pack(side=tk.LEFT, padx=5)
         
-        # BOTTOM ROW - Segmentation and saving controls
-        self.segment_button = Button(
-            bottom_row, 
-            text="Generate Segmentation", 
-            command=self.generate_segmentation,
-            bootstyle="success"
-        )
-        self.segment_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.save_button = Button(
-            bottom_row, 
-            text="Save Mask", 
-            command=self.save_mask,
-            bootstyle="info"
-        )
-        self.save_button.pack(side=tk.LEFT, padx=5)
-
-        self.save_all_button = Button(
-            bottom_row, 
-            text="Save All Masks", 
-            command=self.save_all_masks,
-            bootstyle="primary"
-        )
-        self.save_all_button.pack(side=tk.LEFT, padx=3)
-        
-        # Add a separator
-        Label(bottom_row, text="|", bootstyle="secondary").pack(side=tk.LEFT, padx=5)
-        
         # Add export button
         self.export_button = Button(
             top_row,
@@ -252,9 +229,35 @@ class SAMGUI:
         )
         self.export_button.pack(side=tk.LEFT, padx=5)
         
+        # MIDDLE ROW - Segmentation and saving controls
+        self.segment_button = Button(
+            middle_row, 
+            text="Generate Segmentation", 
+            command=self.generate_segmentation,
+            bootstyle="success"
+        )
+        self.segment_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.save_button = Button(
+            middle_row, 
+            text="Save Mask", 
+            command=self.save_mask,
+            bootstyle="info"
+        )
+        self.save_button.pack(side=tk.LEFT, padx=5)
+
+        self.save_all_button = Button(
+            middle_row, 
+            text="Save All Masks", 
+            command=self.save_all_masks,
+            bootstyle="primary"
+        )
+        self.save_all_button.pack(side=tk.LEFT, padx=3)
+        
+        # BOTTOM ROW - Gamma and Confidence controls
         # Add gamma correction controls to bottom row
         gamma_frame = Frame(bottom_row)
-        gamma_frame.pack(side=tk.LEFT, padx=3, fill=tk.Y)
+        gamma_frame.pack(side=tk.LEFT, padx=10, fill=tk.Y)
         
         Label(gamma_frame, text="Gamma:", bootstyle="white").pack(side=tk.LEFT, padx=3)
         
@@ -271,6 +274,15 @@ class SAMGUI:
         )
         gamma_slider.pack(side=tk.LEFT, padx=3)
         
+        # Gamma value display
+        self.gamma_value_label = Label(
+            gamma_frame,
+            text="1.0",
+            bootstyle="white",
+            width=4
+        )
+        self.gamma_value_label.pack(side=tk.LEFT, padx=3)
+        
         # Reset gamma button
         reset_gamma_btn = Button(
             gamma_frame,
@@ -280,6 +292,44 @@ class SAMGUI:
             width=5
         )
         reset_gamma_btn.pack(side=tk.LEFT, padx=3)
+        
+        # Add confidence threshold controls to bottom row
+        confidence_frame = Frame(bottom_row)
+        confidence_frame.pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        Label(confidence_frame, text="Confidence:", bootstyle="white").pack(side=tk.LEFT, padx=3)
+        
+        confidence_slider = Scale(
+            confidence_frame,
+            variable=self.confidence_value,
+            command=self.update_confidence,
+            bootstyle="info",
+            from_=0.3,
+            to=0.99,
+            orient=tk.HORIZONTAL,
+            length=140,
+            value=0.7
+        )
+        confidence_slider.pack(side=tk.LEFT, padx=3)
+        
+        # Confidence value display
+        self.confidence_value_label = Label(
+            confidence_frame,
+            text="0.70",
+            bootstyle="white",
+            width=4
+        )
+        self.confidence_value_label.pack(side=tk.LEFT, padx=3)
+        
+        # Reset confidence button
+        reset_confidence_btn = Button(
+            confidence_frame,
+            text="Reset",
+            command=lambda: self.reset_confidence(),
+            bootstyle="secondary",
+            width=5
+        )
+        reset_confidence_btn.pack(side=tk.LEFT, padx=3)
         
         # Add tooltips to each button
         ToolTip(self.load_button, text="Load medical images for segmentation")
@@ -292,6 +342,8 @@ class SAMGUI:
         ToolTip(self.save_all_button, text="Save all generated segmentation masks")
         ToolTip(gamma_slider, text="Adjust gamma to enhance image visibility (values < 1.0 brighten dark areas, values > 1.0 darken bright areas)")
         ToolTip(reset_gamma_btn, text="Reset gamma to default value (1.0)")
+        ToolTip(confidence_slider, text="Adjust confidence threshold for segmentation (higher values = more conservative segmentation)")
+        ToolTip(reset_confidence_btn, text="Reset confidence to default value (0.7)")
         ToolTip(self.export_button, text="Export segmentation results to CSV")
     
     def setup_bindings(self):
@@ -794,11 +846,12 @@ class SAMGUI:
                 cropped_labels.append(self.point_labels[i])
         
         # Generate mask on the cropped image
-        cropped_mask = self.model_handler.generate_mask(
+        cropped_mask, raw_prediction = self.model_handler.generate_mask(
             cropped_image,
             bbox=cropped_bbox,
             points=cropped_points,
-            point_labels=cropped_labels
+            point_labels=cropped_labels,
+            confidence_threshold=self.confidence_value.get()
         )
         
         cropped_mask = cv2.resize(cropped_mask, (crop_size, crop_size))
@@ -807,13 +860,19 @@ class SAMGUI:
             self.update_status("Segmentation failed")
             return
         
+        # Store the raw prediction for threshold adjustments
+        raw_prediction_resized = cv2.resize(raw_prediction, (crop_size, crop_size))
+        
         # Convert cropped mask back to original image size
         full_mask = np.zeros((orig_h, orig_w), dtype=np.float32)
+        full_raw_prediction = np.zeros((orig_h, orig_w), dtype=np.float32)
         
-        # Place the cropped mask in the center of the full mask
+        # Place the cropped mask and raw prediction in the center of the full arrays
         full_mask[y_offset:y_offset+crop_size, x_offset:x_offset+crop_size] = cropped_mask
+        full_raw_prediction[y_offset:y_offset+crop_size, x_offset:x_offset+crop_size] = raw_prediction_resized
         
         self.current_mask = full_mask
+        self.current_raw_prediction = full_raw_prediction  # Store raw prediction
         self.canvas_view.current_mask = full_mask
         self.canvas_view.current_resize_factor = resize_factor
         
@@ -870,7 +929,9 @@ class SAMGUI:
                     if self.image_path in self.thumbnail_gallery.patient_masses[current_patient]:
                         del self.thumbnail_gallery.patient_masses[current_patient][self.image_path]
                         logger.info(f"Removed mass for image {self.image_path} from patient {current_patient}")
+            
             self.current_mask = None
+            self.current_raw_prediction = None
             self.canvas_view.current_mask = None
             
             # Also remove from saved masks
@@ -1093,6 +1154,8 @@ class SAMGUI:
 
     def update_gamma(self, value=None):
         """Update gamma value and redraw canvas"""
+        # Update the value label
+        self.gamma_value_label.configure(text=f"{self.gamma_value.get():.2f}")
         # Update the image with new gamma
         self.redraw_canvas()
         self.update_status(f"Gamma: {self.gamma_value.get():.2f}")
@@ -1101,6 +1164,41 @@ class SAMGUI:
         """Reset gamma to default (1.0)"""
         self.gamma_value.set(1.0)
         self.update_gamma()
+
+    def update_confidence(self, value=None):
+        """Update confidence threshold value and reapply to existing prediction"""
+        # Update the value label
+        self.confidence_value_label.configure(text=f"{self.confidence_value.get():.2f}")
+        
+        if self.current_raw_prediction is not None:
+            # Reapply threshold to existing raw prediction
+            new_mask = self.model_handler.apply_confidence_threshold(
+                self.current_raw_prediction, 
+                self.confidence_value.get()
+            )
+            
+            # Update current mask
+            self.current_mask = new_mask.astype(np.float32)
+            self.canvas_view.current_mask = self.current_mask
+            
+            # Update saved mask for this image
+            if self.image_path:
+                self.saved_masks[self.image_path] = self.current_mask.copy()
+            
+            # Recalculate stats and redraw
+            pixel_count, mass = self.canvas_view.update_stats_overlay()
+            if self.thumbnail_gallery.current_patient and mass is not None:
+                self.thumbnail_gallery.update_patient_mass(self.thumbnail_gallery.current_patient, mass)
+            
+            self.redraw_canvas()
+            self.update_status(f"Confidence threshold: {self.confidence_value.get():.2f}")
+        else:
+            self.update_status(f"Confidence threshold: {self.confidence_value.get():.2f} (no active segmentation)")
+
+    def reset_confidence(self):
+        """Reset confidence to default (0.7)"""
+        self.confidence_value.set(0.7)
+        self.update_confidence()
 
     def extract_dicom_metadata(self, dicom_data):
         """Extract relevant metadata from a DICOM dataset."""

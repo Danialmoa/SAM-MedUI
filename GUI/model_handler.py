@@ -30,7 +30,7 @@ class ModelHandler:
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
     
-    def generate_mask(self, image, bbox=None, points=None, point_labels=None):
+    def generate_mask(self, image, bbox=None, points=None, point_labels=None, confidence_threshold=0.7):
         logger.info("Preparing image for segmentation")
         image_tensor = self.preprocess_image(image)
         # Scale the bounding box
@@ -88,7 +88,7 @@ class ModelHandler:
         
         if bbox_tensor is None and points_data is None:
             logger.error("No valid prompts available for segmentation")
-            return None
+            return None, None
         
         with torch.no_grad():
             torch.set_num_threads(max(4, os.cpu_count() - 1))
@@ -99,9 +99,16 @@ class ModelHandler:
                 is_train=False
             )
         
-        pred_mask = pred_mask.cpu().numpy().squeeze() > 0.7
+        # Store the raw prediction and apply threshold
+        raw_prediction = pred_mask.cpu().numpy().squeeze()
+        thresholded_mask = raw_prediction > confidence_threshold
 
-        return pred_mask.astype(np.uint8)
+        return thresholded_mask.astype(np.uint8), raw_prediction
+    
+    def apply_confidence_threshold(self, raw_prediction, confidence_threshold):
+        """Apply confidence threshold to raw prediction"""
+        thresholded_mask = raw_prediction > confidence_threshold
+        return thresholded_mask.astype(np.uint8)
 
 
 
