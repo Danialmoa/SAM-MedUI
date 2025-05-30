@@ -322,22 +322,93 @@ class SAMGUI:
     
     # Image loading and navigation methods
     def load_images(self):
-        """Allow selecting multiple images and store them for navigation"""
-        image_paths = filedialog.askopenfilenames(
-            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp"),
-                       ("DICOM files", "*.dcm *.dicom"),
-                       ("NIfTI files", "*.nii"),
-                       ("All files", "*.*")]
-        )
+        """Automatically load images from directories or individual files"""
+        all_image_paths = []
         
-        if not image_paths:
-            return
+        # First try to get directories
+        directories = self._select_multiple_directories()
+        
+        if directories:
+            # User selected directories - load all images from them
+            supported_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.dcm', '.dicom', '.nii', '.nii.gz')
+            
+            total_files = 0
+            for directory in directories:
+                dir_files = 0
+                for root, dirs, files in os.walk(directory):
+                    for file in files:
+                        if file.lower().endswith(supported_extensions):
+                            full_path = os.path.join(root, file)
+                            all_image_paths.append(full_path)
+                            dir_files += 1
+                total_files += dir_files
+                logger.info(f"Found {dir_files} image files in {directory}")
+            
+            if all_image_paths:
+                self.update_status(f"Loading {total_files} images from {len(directories)} directories...")
+            else:
+                self.update_status("No supported image files found in selected directories")
+                return
+        else:
+            # No directories selected, try individual file selection
+            image_paths = filedialog.askopenfilenames(
+                title="Select image files",
+                filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp"),
+                           ("DICOM files", "*.dcm *.dicom"),
+                           ("NIfTI files", "*.nii *.nii.gz"),
+                           ("All files", "*.*")]
+            )
+            
+            if not image_paths:
+                return
+            
+            all_image_paths = list(image_paths)
+            self.update_status(f"Loading {len(all_image_paths)} selected files...")
         
         # Load the images into the thumbnail gallery
-        if self.thumbnail_gallery.load_images(image_paths):
-            self.update_status("Loaded images successfully")
+        if self.thumbnail_gallery.load_images(all_image_paths):
+            if directories:
+                self.update_status(f"Successfully loaded {len(all_image_paths)} images from {len(directories)} directories")
+            else:
+                self.update_status(f"Successfully loaded {len(all_image_paths)} individual files")
         else:
             self.update_status("Failed to load images")
+
+    def _select_multiple_directories(self):
+        """Allow user to select multiple directories"""
+        directories = []
+        
+        # Keep asking for directories until user cancels
+        while True:
+            directory = filedialog.askdirectory(
+                title="Select directory with images (Cancel to select individual files instead)"
+            )
+            if not directory:
+                break
+            directories.append(directory)
+            
+            # After first selection, ask if they want more (but don't force it)
+            if len(directories) == 1:
+                import tkinter.messagebox as messagebox
+                response = messagebox.askyesno(
+                    "Add More Directories?", 
+                    f"Selected: {os.path.basename(directory)}\n\nAdd another directory?",
+                    default=messagebox.NO  # Default to NO so single directory is easy
+                )
+                if not response:
+                    break
+            else:
+                # For subsequent directories, make it easier to stop
+                import tkinter.messagebox as messagebox
+                response = messagebox.askyesno(
+                    "Add More Directories?", 
+                    f"Selected {len(directories)} directories. Add another?",
+                    default=messagebox.NO
+                )
+                if not response:
+                    break
+        
+        return directories
     
     def on_select_image(self, image_path, index):
         """Called when an image is selected from the gallery"""
