@@ -105,10 +105,38 @@ class ThumbnailGallery:
         self.top_canvas.bind("<Button-5>", self._on_top_mousewheel)
     
     def _extract_patient_id(self, filename):
-        """Extract patient ID from filename (e.g., 'a_1_1.jpg' -> 'a' or 'MR.1.3.12.2.1107.5.2.18.41662.2019120511303784390827973' -> 'MR.1.3.12.2.1107.5.2.18.41662')"""
+        """Extract patient ID from filename or DICOM header"""
         # Get base filename without path and extension
         base_name = os.path.basename(filename)
         
+        # Check if this is a DICOM file and extract from header
+        if filename.endswith('.dcm') or filename.endswith('.dicom'):
+            try:
+                dicom_file = pydicom.dcmread(filename)
+                
+                # Try Patient ID first (most reliable)
+                if hasattr(dicom_file, 'PatientID') and dicom_file.PatientID:
+                    return str(dicom_file.PatientID).strip()
+                
+                # Fallback to Patient Name if no Patient ID
+                if hasattr(dicom_file, 'PatientName') and dicom_file.PatientName:
+                    # Convert DICOM PersonName to string
+                    patient_name = str(dicom_file.PatientName).strip()
+                    # Remove any special characters and replace spaces with underscores
+                    patient_name = re.sub(r'[^\w\s-]', '', patient_name).replace(' ', '_')
+                    return patient_name
+                
+                # Last resort: use Study Instance UID (truncated)
+                if hasattr(dicom_file, 'StudyInstanceUID') and dicom_file.StudyInstanceUID:
+                    study_uid = str(dicom_file.StudyInstanceUID)
+                    # Take first part of UID for readability
+                    return study_uid.split('.')[0] if '.' in study_uid else study_uid[:20]
+                    
+            except Exception as e:
+                logger.warning(f"Could not read DICOM header from {filename}: {e}")
+                # Fall back to filename parsing
+        
+        # Original filename parsing logic for non-DICOM files
         # Need at least 6 parts (patient ID + 5 metadata parts)
         parts = base_name.split('_')
         if len(parts) >= 6:  
