@@ -323,8 +323,8 @@ class CanvasView:
                     interpolation=cv2.INTER_NEAREST
                 )
             
-            mask_overlay[scaled_mask > 0] = [0, 255, 0]  # Green for the mask
-            alpha = 0.5
+            mask_overlay[scaled_mask > 0] = [255, 0, 255]  # Cyan for the mask
+            alpha = 0.8
             self.displayed_image = cv2.addWeighted(self.displayed_image, 1, mask_overlay, alpha, 0)
         
         # Draw bounding box if it exists
