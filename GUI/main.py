@@ -30,7 +30,7 @@ class SAMGUI:
         # Configure root window
         self.root = root
         self.root.title("SAM Segmentation Tool")
-        self.root.geometry("1000x900")
+        self.root.geometry("1100x900")
         
         # Initialize components
         self.model_handler = ModelHandler(config)
@@ -75,8 +75,8 @@ class SAMGUI:
         self.main_pane = PanedWindow(self.root, orient=tk.HORIZONTAL, bootstyle="dark")
         self.main_pane.pack(fill=tk.BOTH, expand=True)
         
-        # Create the sidebar for thumbnails
-        self.sidebar_frame = Frame(self.main_pane, bootstyle="dark", width=150)
+        # Create the sidebar for thumbnails - increase minimum width
+        self.sidebar_frame = Frame(self.main_pane, bootstyle="dark", width=200)  # Increase from 150 to 200
         self.sidebar_frame.pack_propagate(False) 
         
         # Right side content
@@ -153,8 +153,21 @@ class SAMGUI:
         
         # Crucial step: Force the UI to draw and calculate sizes
         self.root.update_idletasks() 
-
-        self.main_pane.sashpos(0, 150)
+        
+        # Delay the sash position setting to ensure proper layout
+        self.root.after(100, lambda: self._set_initial_sash_position())
+    
+    def _set_initial_sash_position(self):
+        """Set the initial sash position after UI is fully rendered"""
+        try:
+            # Set sash position to 200px (matching the sidebar width)
+            self.main_pane.sashpos(0, 200)
+            
+            # Force update of thumbnail gallery layout
+            if hasattr(self, 'thumbnail_gallery'):
+                self.thumbnail_gallery.patient_canvas.update_idletasks()
+        except Exception as e:
+            logger.warning(f"Could not set initial sash position: {e}")
     
     def create_toolbar(self):
         """Create the toolbar with control buttons"""
@@ -565,6 +578,7 @@ class SAMGUI:
         # Clear current state
         self.current_mask = None
         self.canvas_view.current_mask = None
+        self.current_raw_prediction = None
         self.bbox = None
         self.point_coords = []
         self.point_labels = []

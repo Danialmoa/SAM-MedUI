@@ -37,7 +37,7 @@ class ThumbnailGallery:
         self.patient_label.pack(side=tk.TOP, fill=tk.X, pady=3, padx=5)
         
         # Create a canvas with scrollbar for patients
-        self.patient_canvas = Canvas(self.sidebar_frame, width=150)
+        self.patient_canvas = Canvas(self.sidebar_frame)
         self.patient_scrollbar = Scrollbar(
             self.sidebar_frame, 
             orient="vertical", 
@@ -48,15 +48,27 @@ class ThumbnailGallery:
         self.patient_list_frame = Frame(self.patient_canvas, bootstyle="dark")
         
         self.patient_canvas.configure(yscrollcommand=self.patient_scrollbar.set)
-        self.patient_canvas.create_window((0, 0), window=self.patient_list_frame, anchor="nw", width=150)
+        self.canvas_window = self.patient_canvas.create_window(
+            (0, 0), 
+            window=self.patient_list_frame, 
+            anchor="nw"
+        )
         
-        self.patient_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # CRITICAL FIX: Pack scrollbar FIRST, then canvas
+        # This ensures the scrollbar gets its space before the canvas expands
         self.patient_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.patient_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # Configure the patient frame to update scroll region when size changes
         self.patient_list_frame.bind(
             "<Configure>",
-            lambda e: self.patient_canvas.configure(scrollregion=self.patient_canvas.bbox("all"))
+            self._on_patient_frame_configure
+        )
+        
+        # Bind canvas configure to update window width
+        self.patient_canvas.bind(
+            "<Configure>",
+            self._on_canvas_configure
         )
         
         # Add mouse wheel scrolling
@@ -208,10 +220,13 @@ class ThumbnailGallery:
                 self.patient_list_frame,
                 text=f"{patient_id} ({img_count})",
                 bootstyle="primary-outline",
-                width=15,
                 command=lambda pid=patient_id: self.select_patient(pid)
             )
-            patient_btn.pack(side=tk.TOP, padx=5, pady=5, fill=tk.X)
+            patient_btn.pack(side=tk.TOP, padx=5, pady=2, fill=tk.X, expand=True)
+        
+        # Force update of canvas dimensions after adding buttons
+        self.patient_list_frame.update_idletasks()
+        self.patient_canvas.update_idletasks()
         
         # Select first patient if available
         if self.patient_images:
@@ -466,3 +481,19 @@ class ThumbnailGallery:
             # Log the update for debugging
             logger.info(f"Updated mass for patient {patient_id}, image {current_path}: {slice_mass:.2f}")
             logger.info(f"Total patient mass: {sum(self.patient_masses[patient_id].values()):.2f}")
+
+    def _on_patient_frame_configure(self, event):
+        """Update scroll region and canvas window width when frame changes"""
+        # Update scroll region
+        self.patient_canvas.configure(scrollregion=self.patient_canvas.bbox("all"))
+        
+        # Update canvas window width to match canvas width
+        canvas_width = self.patient_canvas.winfo_width()
+        if canvas_width > 1:  # Ensure canvas has been drawn
+            self.patient_canvas.itemconfig(self.canvas_window, width=canvas_width)
+    
+    def _on_canvas_configure(self, event):
+        """Update canvas window width when canvas is resized"""
+        canvas_width = event.width
+        if canvas_width > 1:
+            self.patient_canvas.itemconfig(self.canvas_window, width=canvas_width)
