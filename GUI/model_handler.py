@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import torch
 import os
+from ultralytics import YOLO
+
 
 from SAM_finetune.models.dataset import PercentileNormalize
 from SAM_finetune.models.sam_model import SAMModel
@@ -13,9 +15,123 @@ logger = setup_logger()
 class ModelHandler:
     """Handles model loading and segmentation operations"""
     def __init__(self, config: SAMGUIConfig):
+        self.config = config
         self.model = SAMModel(config)
         self.device = config.device
+        self.yolo_model = None 
+        self.yolo_confidence = config.yolo_confidence
+        if config.yolo_model_path and os.path.exists(config.yolo_model_path):
+            self._load_yolo_model(config.yolo_model_path)
+            
+    def _load_yolo_model(self, model_path):
+        try:
+            self.yolo_model = YOLO(model_path)
+            logger.info(f"YOLO model loaded from {model_path}")
+        except Exception as e:
+            logger.error(f"Error loading YOLO model: {e}")
+            self.yolo_model = None
+            self.yolo_confidence = 0.25
+            logger.warning("YOLO model not loaded.")
+            
+    def remove_black_borders_for_yolo(self, image, threshold=10):
+        """
+        Remove black borders and create center square crop for YOLO processing
+        Returns the cropped image and the offsets for coordinate adjustment
+        """
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        else:
+            gray = image
         
+        h, w = gray.shape
+        
+        # find left border
+        left_crop = 0
+        for x in range(w):
+            if np.mean(gray[:, x]) > threshold:
+                left_crop = x
+                break
+        
+        # find right border  
+        right_crop = w
+        for x in range(w-1, -1, -1):
+            if np.mean(gray[:, x]) > threshold:
+                right_crop = x + 1
+                break
+        
+        # remove black borders
+        if left_crop < right_crop:
+            no_borders_image = image[:, left_crop:right_crop]
+        else:
+            no_borders_image = image
+            left_crop = 0
+        
+        # center square crop based on smaller dimension
+        h_clean, w_clean = no_borders_image.shape[:2]
+        min_dim = min(h_clean, w_clean)
+        
+        # Calculate center crop coordinates
+        center_x = w_clean // 2
+        center_y = h_clean // 2
+        half_size = min_dim // 2
+        
+        crop_x1 = center_x - half_size
+        crop_y1 = center_y - half_size
+        crop_x2 = crop_x1 + min_dim
+        crop_y2 = crop_y1 + min_dim
+        
+        # Ensure we don't go out of bounds
+        crop_x1 = max(0, crop_x1)
+        crop_y1 = max(0, crop_y1)
+        crop_x2 = min(w_clean, crop_x2)
+        crop_y2 = min(h_clean, crop_y2)
+        
+        # Create the square crop
+        square_crop = no_borders_image[crop_y1:crop_y2, crop_x1:crop_x2]
+        
+        # Total offsets for coordinate adjustment
+        total_x_offset = left_crop + crop_x1
+        total_y_offset = crop_y1
+        
+        logger.info(f"Image preprocessing: Original {image.shape}, After border removal {no_borders_image.shape}, Square crop {square_crop.shape}")
+        logger.info(f"Offsets: x_offset={total_x_offset}, y_offset={total_y_offset}")
+        
+        return square_crop, (total_x_offset, total_y_offset)
+
+    def detection(self, image):
+        """Run YOLO detection on the image"""
+        if self.yolo_model is None:
+            logger.warning("YOLO model not loaded. Skipping detection.")
+            return None
+
+        # Remove black borders and create square crop for YOLO processing
+        cropped_image, (x_offset, y_offset) = self.remove_black_borders_for_yolo(image)
+        
+        # Run YOLO on square cropped image
+        yolo_results = self.yolo_model.predict(cropped_image, conf=self.yolo_confidence, verbose=False)
+        bboxes = yolo_results[0].boxes.xyxy.cpu().numpy()
+        
+        if len(bboxes) > 0:
+            # Get the first (most confident) detection
+            bbox = bboxes[0].tolist()
+            
+            # Adjust coordinates back to original image space
+            adjusted_bbox = [
+                bbox[0] + x_offset,  # x1
+                bbox[1] + y_offset,  # y1
+                bbox[2] + x_offset,  # x2
+                bbox[3] + y_offset   # y2
+            ]
+            
+            logger.info(f"YOLO bbox (square crop): {bbox}")
+            logger.info(f"YOLO bbox (adjusted to original): {adjusted_bbox}")
+            logger.info(f"Applied offsets: x={x_offset}, y={y_offset}")
+            
+            return adjusted_bbox
+        else:
+            return None
+        
+            
     def _precentile_normalize(self, image):
         np_image = np.array(image)
         lower_percentile = np.percentile(np_image, 0.5)

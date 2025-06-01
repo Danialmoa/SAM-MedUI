@@ -55,6 +55,7 @@ class SAMGUI:
         self.mass_label_var = tk.StringVar(value="No segmentation")
         self.gamma_value = tk.DoubleVar(value=1.0)
         self.confidence_value = tk.DoubleVar(value=0.7)
+        self.yolo_enabled = tk.BooleanVar(value=True)
         
         self.mask_temporarily_hidden = False
         
@@ -67,7 +68,7 @@ class SAMGUI:
         
         # Set up event bindings
         self.setup_bindings()
-        
+    
     def create_ui(self):
         """Create the main UI layout and widgets"""
         # Create main paned window
@@ -208,6 +209,15 @@ class SAMGUI:
         )
         self.fg_point_check.pack(side=tk.LEFT, padx=5)
         
+        if self.model_handler.yolo_model is not None:
+            self.yolo_check = Checkbutton(
+                top_row, 
+                text="YOLO Auto-Detect",
+                variable=self.yolo_enabled,
+                bootstyle="round-toggle-warning"
+            )
+            self.yolo_check.pack(side=tk.LEFT, padx=5)
+        
         # Add a separator
         Label(top_row, text="|", bootstyle="dark").pack(side=tk.LEFT, padx=5)
         
@@ -227,15 +237,6 @@ class SAMGUI:
             bootstyle="warning"
         )
         self.clear_mask_button.pack(side=tk.LEFT, padx=5)
-        
-        # Add export button
-        self.export_button = Button(
-            top_row,
-            text="Export Results",
-            command=self.export_results,
-            bootstyle="danger"
-        )
-        self.export_button.pack(side=tk.LEFT, padx=5)
         
         # MIDDLE ROW - Segmentation and saving controls
         self.segment_button = Button(
@@ -261,6 +262,15 @@ class SAMGUI:
             bootstyle="primary"
         )
         self.save_all_button.pack(side=tk.LEFT, padx=3)
+        
+        # Add export button to middle row
+        self.export_button = Button(
+            middle_row,
+            text="Export Results",
+            command=self.export_results,
+            bootstyle="danger"
+        )
+        self.export_button.pack(side=tk.LEFT, padx=5)
         
         # BOTTOM ROW - Gamma and Confidence controls
         # Add gamma correction controls to bottom row
@@ -354,6 +364,34 @@ class SAMGUI:
         ToolTip(confidence_slider, text="Adjust confidence threshold for segmentation (higher values = more conservative segmentation)")
         ToolTip(reset_confidence_btn, text="Reset confidence to default value (0.7)")
         ToolTip(self.export_button, text="Export segmentation results to CSV")
+    
+    def suggest_bounding_box(self):
+        """Use YOLO to suggest the best bounding box"""
+        if self.canvas_view.original_image is None:
+            self.update_status("Please load an image first")
+            return
+        
+        if self.model_handler.yolo_model is None:
+            self.update_status("YOLO model not available")
+            return
+        
+        self.update_status("Getting YOLO suggestion...")
+        
+        # Get YOLO detection
+        suggested_bbox = self.model_handler.detection(self.canvas_view.display_image)
+        
+        if suggested_bbox is not None:
+            # Set the suggested bbox
+            self.bbox = suggested_bbox
+            self.update_status(f"YOLO suggested bbox: ({suggested_bbox[0]}, {suggested_bbox[1]}) to ({suggested_bbox[2]}, {suggested_bbox[3]})")
+            
+            # Redraw canvas to show the suggested bbox and automatically save it
+            self.redraw_canvas()
+            
+            logger.info(f"YOLO suggested bounding box: {suggested_bbox}")
+            logger.info(f"Saved bbox to prompts for image: {self.image_path}")
+        else:
+            self.update_status("YOLO could not detect any objects in the image")
     
     def setup_bindings(self):
         """Set up keyboard and other bindings"""
@@ -939,7 +977,16 @@ class SAMGUI:
             self.mass_label_var.set("No segmentation")
     
     def redraw_canvas(self):
-        """Redraw the canvas with current state"""
+        """Redraw the canvas with current state and save prompts"""
+        # Save current bbox and points to saved_prompts if we have an image loaded
+        if self.image_path:
+            self.saved_prompts[self.image_path] = {
+                'bbox': self.bbox.copy() if self.bbox else None,
+                'points': self.point_coords.copy() if self.point_coords else [],
+                'labels': self.point_labels.copy() if self.point_labels else []
+            }
+        
+        # Redraw the canvas with current state
         self.canvas_view.draw_image_with_annotations(
             bbox=self.bbox,
             point_coords=self.point_coords,
@@ -1330,7 +1377,8 @@ if __name__ == "__main__":
         model_type='vit_b',
         sam_path='checkpoints/sam_vit_b_01ec64.pth',
         checkpoint_path='checkpoints/best_model.pth',
-        device='cpu'
+        device='cpu',
+        yolo_model_path='checkpoints/yolo_best.pt',
     )
 
     root = Window(themename="darkly")

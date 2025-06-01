@@ -105,6 +105,17 @@ class CanvasView:
         self.display_image = cv2.resize(self.original_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
         self.displayed_image = self.display_image.copy()
 
+        # Get the bounding box from yolo if enabled
+        if self.parent.yolo_enabled.get():
+            print("YOLO enabled")
+            detected_bbox = self.parent.model_handler.detection(self.display_image)
+            if detected_bbox is not None:
+                # Set bbox in parent (SAMGUI) not in self (CanvasView)
+                self.parent.bbox = detected_bbox
+                logger.info(f"YOLO detected bbox: {detected_bbox}")
+                # Redraw canvas to show the bbox
+                self.parent.redraw_canvas()
+
         # Reset view parameters
         self.reset_view()
         

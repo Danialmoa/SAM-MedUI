@@ -78,5 +78,6 @@ class SAMGUIConfig:
     model_type: str = 'vit_b'
     sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
     checkpoint_path: str = 'checkpoints/best_model.pth'
-    
+    yolo_model_path: str = 'pretrained_models/yolo_model.pt'
+    yolo_confidence: float = 0.25
     
