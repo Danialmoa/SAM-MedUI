@@ -113,8 +113,6 @@ class CanvasView:
                 # Set bbox in parent (SAMGUI) not in self (CanvasView)
                 self.parent.bbox = detected_bbox
                 logger.info(f"YOLO detected bbox: {detected_bbox}")
-                # Redraw canvas to show the bbox
-                self.parent.redraw_canvas()
 
         # Reset view parameters
         self.reset_view()

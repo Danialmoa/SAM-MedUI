@@ -576,6 +576,7 @@ class SAMGUI:
     def restore_saved_state(self):
         """Restore saved mask and prompts for the current image"""
         # Clear current state
+        yolo_bbox = self.bbox
         self.current_mask = None
         self.canvas_view.current_mask = None
         self.current_raw_prediction = None
@@ -599,6 +600,9 @@ class SAMGUI:
             if saved_state['points']:
                 self.point_coords = saved_state['points'].copy()
                 self.point_labels = saved_state['labels'].copy()
+        
+        if self.bbox is None and yolo_bbox is not None:
+            self.bbox = yolo_bbox
         
         # Redraw canvas with restored state
         self.redraw_canvas()
