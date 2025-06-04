@@ -601,8 +601,11 @@ class SAMGUI:
                 self.point_coords = saved_state['points'].copy()
                 self.point_labels = saved_state['labels'].copy()
         
+        # Only use YOLO bbox if no saved bbox exists AND yolo detected something for THIS image
+        # We should NOT carry over bboxes from previous images
         if self.bbox is None and yolo_bbox is not None:
             self.bbox = yolo_bbox
+            logger.info(f"Using YOLO detected bbox: {yolo_bbox}")
         
         # Redraw canvas with restored state
         self.redraw_canvas()

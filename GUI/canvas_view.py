@@ -113,6 +113,11 @@ class CanvasView:
                 # Set bbox in parent (SAMGUI) not in self (CanvasView)
                 self.parent.bbox = detected_bbox
                 logger.info(f"YOLO detected bbox: {detected_bbox}")
+            else:
+                # IMPORTANT: Clear the bbox when YOLO doesn't detect anything
+                # This prevents carrying over bboxes from previous images
+                self.parent.bbox = None
+                logger.info("YOLO did not detect any objects - clearing bbox")
 
         # Reset view parameters
         self.reset_view()
