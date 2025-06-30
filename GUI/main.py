@@ -575,8 +575,10 @@ class SAMGUI:
     
     def restore_saved_state(self):
         """Restore saved mask and prompts for the current image"""
+        # Save the freshly detected YOLO bbox (if any) before clearing
+        fresh_yolo_bbox = self.bbox
+        
         # Clear current state
-        yolo_bbox = self.bbox
         self.current_mask = None
         self.canvas_view.current_mask = None
         self.current_raw_prediction = None
@@ -586,7 +588,6 @@ class SAMGUI:
 
         # Restore mask if available
         if self.image_path in self.saved_masks:
-            
             self.current_mask = self.saved_masks[self.image_path].copy()
             self.canvas_view.current_mask = self.current_mask.copy()
         
@@ -601,11 +602,11 @@ class SAMGUI:
                 self.point_coords = saved_state['points'].copy()
                 self.point_labels = saved_state['labels'].copy()
         
-        # Only use YOLO bbox if no saved bbox exists AND yolo detected something for THIS image
-        # We should NOT carry over bboxes from previous images
-        if self.bbox is None and yolo_bbox is not None:
-            self.bbox = yolo_bbox
-            logger.info(f"Using YOLO detected bbox: {yolo_bbox}")
+        # If no saved bbox exists AND we have a fresh YOLO detection AND YOLO is enabled
+        # use the fresh YOLO bbox (this prevents carrying over old bboxes while allowing new detections)
+        if self.bbox is None and fresh_yolo_bbox is not None and self.yolo_enabled.get():
+            self.bbox = fresh_yolo_bbox
+            logger.info(f"Using fresh YOLO detected bbox: {fresh_yolo_bbox}")
         
         # Redraw canvas with restored state
         self.redraw_canvas()
