@@ -226,7 +226,7 @@ class SAMGUI:
         if self.model_handler.yolo_model is not None:
             self.yolo_check = Checkbutton(
                 top_row, 
-                text="YOLO Auto-Detect",
+                text="Auto-Detect",
                 variable=self.yolo_enabled,
                 bootstyle="round-toggle-warning"
             )
@@ -536,7 +536,7 @@ class SAMGUI:
         
         # Update window title
         image_name = os.path.basename(image_path)
-        self.root.title(f"SAM Segmentation Tool - {image_name} ({index + 1}/{len(self.thumbnail_gallery.image_files)})")
+        self.root.title(f"Segmentation Tool - {image_name} ({index + 1}/{len(self.thumbnail_gallery.image_files)})")
         
         # Restore previously saved state for this image
         self.restore_saved_state()

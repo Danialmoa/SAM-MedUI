@@ -126,10 +126,6 @@ class ThumbnailGallery:
             try:
                 dicom_file = pydicom.dcmread(filename)
                 
-                # Try Patient ID first (most reliable)
-                if hasattr(dicom_file, 'PatientID') and dicom_file.PatientID:
-                    return str(dicom_file.PatientID).strip()
-                
                 # Fallback to Patient Name if no Patient ID
                 if hasattr(dicom_file, 'PatientName') and dicom_file.PatientName:
                     # Convert DICOM PersonName to string
