@@ -64,6 +64,10 @@ class SAMGUI:
         self.saved_masks = {}
         self.saved_prompts = {}
         
+        # Simple undo system for prompts and mask operations
+        self.undo_stack = []
+        self.max_undo_levels = 10  # Keep it simple
+        
         # Create the main layout
         self.create_ui()
         
@@ -145,7 +149,7 @@ class SAMGUI:
         # Add a label showing keyboard shortcuts
         self.controls_status = Label(
             status_frame,
-            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate | Z: Hide Mask & Prompts",
+            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate | Z: Hide Mask & Prompts | Ctrl+Z: Undo",
             bootstyle="inverse-secondary",
             anchor=tk.E,
             padding=5
@@ -451,6 +455,9 @@ class SAMGUI:
         self.canvas_view.canvas.bind("<Control-B1-Motion>", self.on_pan_move)
         self.canvas_view.canvas.bind("<Control-ButtonRelease-1>", self.on_pan_end)
         
+        # Add undo functionality
+        self.root.bind("<Control-z>", lambda e: self.undo_last_action())
+        
         # mask and prompts toggle binding
         self.root.bind("<KeyPress-z>", self.hide_mask_and_prompts)
         self.root.bind("<KeyRelease-z>", self.show_mask_and_prompts)
@@ -729,6 +736,7 @@ class SAMGUI:
             
             # If this was just a click (minimal movement) and points are enabled, add a point
             if move_distance < 5 and self.fg_points_enabled.get():
+                self.save_state_for_undo("add point")
                 point_label = 1  # Foreground point
                 # Store original (unzoomed) coordinates
                 self.point_coords.append([img_x, img_y])
@@ -741,6 +749,7 @@ class SAMGUI:
             
             # If this was a drag and bbox is enabled, create bounding box
             elif move_distance >= 5 and self.bbox_enabled.get():
+                # Removed undo save for bounding box creation
                 x1 = min(self.bbox_start_x, img_x)
                 y1 = min(self.bbox_start_y, img_y)
                 x2 = max(self.bbox_start_x, img_x)
@@ -1027,6 +1036,8 @@ class SAMGUI:
             self.update_status("No segmentation mask available to shrink")
             return
         
+        self.save_state_for_undo("shrink mask")
+        
         # Create a small kernel for erosion
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         
@@ -1058,6 +1069,8 @@ class SAMGUI:
         if self.current_mask is None:
             self.update_status("No segmentation mask available to expand")
             return
+        
+        self.save_state_for_undo("expand mask")
         
         # Create a small kernel for dilation
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -1501,6 +1514,68 @@ class SAMGUI:
         except Exception as e:
             self.update_status(f"Error exporting results: {str(e)}")
             logger.error(f"Error exporting results: {e}")
+
+    def save_state_for_undo(self, action_type):
+        """Save current state before performing an action"""
+        if not self.image_path:
+            return
+            
+        state = {
+            'action_type': action_type,
+            'image_path': self.image_path,
+            'bbox': self.bbox.copy() if self.bbox else None,
+            'point_coords': self.point_coords.copy(),
+            'point_labels': self.point_labels.copy(),
+            'current_mask': self.current_mask.copy() if self.current_mask is not None else None,
+        }
+        
+        self.undo_stack.append(state)
+        
+        # Keep stack size manageable
+        if len(self.undo_stack) > self.max_undo_levels:
+            self.undo_stack.pop(0)
+
+    def undo_last_action(self):
+        """Undo the last action on current image"""
+        if not self.undo_stack:
+            self.update_status("Nothing to undo")
+            return
+        
+        # Find the most recent action for current image
+        current_image_states = [i for i, state in enumerate(self.undo_stack) 
+                               if state['image_path'] == self.image_path]
+        
+        if not current_image_states:
+            self.update_status("Nothing to undo for current image")
+            return
+        
+        # Get and remove the most recent state
+        last_index = current_image_states[-1]
+        last_state = self.undo_stack.pop(last_index)
+        
+        # Restore the state
+        self.bbox = last_state['bbox'].copy() if last_state['bbox'] else None
+        self.point_coords = last_state['point_coords'].copy()
+        self.point_labels = last_state['point_labels'].copy()
+        self.current_mask = last_state['current_mask'].copy() if last_state['current_mask'] is not None else None
+        self.canvas_view.current_mask = self.current_mask
+        
+        # Update saved state
+        if self.current_mask is not None:
+            self.saved_masks[self.image_path] = self.current_mask.copy()
+        elif self.image_path in self.saved_masks:
+            del self.saved_masks[self.image_path]
+            
+        # Recalculate stats and redraw
+        if self.current_mask is not None:
+            pixel_count, mass = self.canvas_view.update_stats_overlay()
+            if self.thumbnail_gallery.current_patient and mass is not None:
+                self.thumbnail_gallery.update_patient_mass(self.thumbnail_gallery.current_patient, mass)
+        else:
+            self.canvas_view.update_stats_overlay()
+        
+        self.redraw_canvas()
+        self.update_status(f"Undid: {last_state['action_type']}")
 
 if __name__ == "__main__":
     config = SAMGUIConfig(
