@@ -58,6 +58,7 @@ class SAMGUI:
         self.yolo_enabled = tk.BooleanVar(value=True)
         
         self.mask_temporarily_hidden = False
+        self.prompts_temporarily_hidden = False
         
         # Dictionaries to store state for each image
         self.saved_masks = {}
@@ -144,7 +145,7 @@ class SAMGUI:
         # Add a label showing keyboard shortcuts
         self.controls_status = Label(
             status_frame,
-            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate | H: Hide Mask",
+            text="Ctrl+Wheel: Zoom | Ctrl+Drag: Pan | ←→: Navigate | Z: Hide Mask & Prompts",
             bootstyle="inverse-secondary",
             anchor=tk.E,
             padding=5
@@ -428,9 +429,9 @@ class SAMGUI:
         self.canvas_view.canvas.bind("<Control-B1-Motion>", self.on_pan_move)
         self.canvas_view.canvas.bind("<Control-ButtonRelease-1>", self.on_pan_end)
         
-        # mask toggle binding
-        self.root.bind("<KeyPress-h>", self.hide_mask)
-        self.root.bind("<KeyRelease-h>", self.show_mask)
+        # mask and prompts toggle binding
+        self.root.bind("<KeyPress-z>", self.hide_mask_and_prompts)
+        self.root.bind("<KeyRelease-z>", self.show_mask_and_prompts)
     
     # Image loading and navigation methods
     def load_folder(self):
@@ -1008,11 +1009,16 @@ class SAMGUI:
                 'labels': self.point_labels.copy() if self.point_labels else []
             }
         
+        # Determine what to show based on temporarily hidden flags
+        show_bbox = self.bbox if not self.prompts_temporarily_hidden else None
+        show_points = self.point_coords if not self.prompts_temporarily_hidden else []
+        show_labels = self.point_labels if not self.prompts_temporarily_hidden else []
+        
         # Redraw the canvas with current state
         self.canvas_view.draw_image_with_annotations(
-            bbox=self.bbox,
-            point_coords=self.point_coords,
-            point_labels=self.point_labels,
+            bbox=show_bbox,
+            point_coords=show_points,
+            point_labels=show_labels,
             gamma=self.gamma_value.get(),
             mask_visible=not self.mask_temporarily_hidden
         )
@@ -1338,17 +1344,17 @@ class SAMGUI:
         metadata['slice_thickness'] = float(pixel_dims[2])
         return metadata
     
-    def hide_mask(self, event):
-        """Temporarily hide the mask when key is pressed"""
-        if self.current_mask is not None:
-            self.mask_temporarily_hidden = True
-            self.redraw_canvas()
+    def hide_mask_and_prompts(self, event):
+        """Temporarily hide the mask and prompts when key is pressed"""
+        self.mask_temporarily_hidden = True
+        self.prompts_temporarily_hidden = True
+        self.redraw_canvas()
             
-    def show_mask(self, event):
-        """Show the mask again when key is released"""
-        if self.current_mask is not None:
-            self.mask_temporarily_hidden = False
-            self.redraw_canvas()
+    def show_mask_and_prompts(self, event):
+        """Show the mask and prompts again when key is released"""
+        self.mask_temporarily_hidden = False
+        self.prompts_temporarily_hidden = False
+        self.redraw_canvas()
 
     def export_results(self):
         """Export segmentation results to CSV"""
