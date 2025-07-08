@@ -286,6 +286,26 @@ class SAMGUI:
         )
         self.export_button.pack(side=tk.LEFT, padx=5)
         
+        # Add separator for post-processing controls
+        Label(middle_row, text="|", bootstyle="dark").pack(side=tk.LEFT, padx=5)
+        
+        # Add post-processing buttons
+        self.shrink_button = Button(
+            middle_row,
+            text="Shrink",
+            command=self.shrink_mask,
+            bootstyle="warning"
+        )
+        self.shrink_button.pack(side=tk.LEFT, padx=3)
+        
+        self.expand_button = Button(
+            middle_row,
+            text="Expand", 
+            command=self.expand_mask,
+            bootstyle="info"
+        )
+        self.expand_button.pack(side=tk.LEFT, padx=3)
+        
         # BOTTOM ROW - Gamma and Confidence controls
         # Add gamma correction controls to bottom row
         gamma_frame = Frame(bottom_row)
@@ -377,6 +397,8 @@ class SAMGUI:
         ToolTip(reset_gamma_btn, text="Reset gamma to default value (1.0)")
         ToolTip(confidence_slider, text="Adjust confidence threshold for segmentation (higher values = more conservative segmentation)")
         ToolTip(reset_confidence_btn, text="Reset confidence to default value (0.7)")
+        ToolTip(self.shrink_button, text="Shrink the segmentation mask (morphological erosion)")
+        ToolTip(self.expand_button, text="Expand the segmentation mask (morphological dilation)")
         ToolTip(self.export_button, text="Export segmentation results to CSV")
     
     def suggest_bounding_box(self):
@@ -998,6 +1020,70 @@ class SAMGUI:
             self.redraw_canvas()
             self.update_status("Segmentation mask cleared")
             self.mass_label_var.set("No segmentation")
+    
+    def shrink_mask(self):
+        """Apply morphological erosion to shrink the segmentation mask"""
+        if self.current_mask is None:
+            self.update_status("No segmentation mask available to shrink")
+            return
+        
+        # Create a small kernel for erosion
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        
+        # Convert mask to uint8 for morphological operations
+        mask_uint8 = (self.current_mask * 255).astype(np.uint8)
+        
+        # Apply erosion
+        eroded_mask = cv2.erode(mask_uint8, kernel, iterations=1)
+        
+        # Convert back to float32
+        self.current_mask = (eroded_mask / 255.0).astype(np.float32)
+        self.canvas_view.current_mask = self.current_mask
+        
+        # Update saved mask for this image
+        if self.image_path:
+            self.saved_masks[self.image_path] = self.current_mask.copy()
+        
+        # Recalculate stats and update display
+        pixel_count, mass = self.canvas_view.update_stats_overlay()
+        if self.thumbnail_gallery.current_patient and mass is not None:
+            self.thumbnail_gallery.update_patient_mass(self.thumbnail_gallery.current_patient, mass)
+        
+        self.redraw_canvas()
+        self.update_status(f"Mask shrunk - New size: {np.sum(self.current_mask):.0f} pixels")
+        logger.info("Applied morphological erosion to shrink mask")
+
+    def expand_mask(self):
+        """Apply morphological dilation to expand the segmentation mask"""
+        if self.current_mask is None:
+            self.update_status("No segmentation mask available to expand")
+            return
+        
+        # Create a small kernel for dilation
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        
+        # Convert mask to uint8 for morphological operations
+        mask_uint8 = (self.current_mask * 255).astype(np.uint8)
+        
+        # Apply dilation
+        dilated_mask = cv2.dilate(mask_uint8, kernel, iterations=1)
+        
+        # Convert back to float32
+        self.current_mask = (dilated_mask / 255.0).astype(np.float32)
+        self.canvas_view.current_mask = self.current_mask
+        
+        # Update saved mask for this image
+        if self.image_path:
+            self.saved_masks[self.image_path] = self.current_mask.copy()
+        
+        # Recalculate stats and update display
+        pixel_count, mass = self.canvas_view.update_stats_overlay()
+        if self.thumbnail_gallery.current_patient and mass is not None:
+            self.thumbnail_gallery.update_patient_mass(self.thumbnail_gallery.current_patient, mass)
+        
+        self.redraw_canvas()
+        self.update_status(f"Mask expanded - New size: {np.sum(self.current_mask):.0f} pixels")
+        logger.info("Applied morphological dilation to expand mask")
     
     def redraw_canvas(self):
         """Redraw the canvas with current state and save prompts"""
