@@ -1036,16 +1036,22 @@ class SAMGUI:
         prompts_dir = os.path.join(os.path.dirname(self.image_path), "prompts")
         os.makedirs(prompts_dir, exist_ok=True)
         
-        # Generate mask filename based on original image name
+        # Generate mask filename based on patient name + original image name
         image_name = os.path.basename(self.image_path)
         base_name, ext = os.path.splitext(image_name)
+        
+        # Get patient name from thumbnail gallery
+        patient_name = self.thumbnail_gallery.current_patient if self.thumbnail_gallery.current_patient else "Unknown"
         
         if '#slice=' in self.image_path:
             slice_idx = self.image_path.split('#slice=')[1]
             base_name = f"{base_name}_slice{slice_idx}"
         
-        mask_path = os.path.join(masks_dir, f"{base_name}_mask.png")
-        prompt_path = os.path.join(prompts_dir, f"{base_name}_prompt.json")
+        # Create filename with patient name + file name
+        combined_name = f"{patient_name}_{base_name}"
+        
+        mask_path = os.path.join(masks_dir, f"{combined_name}_mask.png")
+        prompt_path = os.path.join(prompts_dir, f"{combined_name}_prompt.json")
         
         # Option to override default path
         suggested_path = mask_path
@@ -1084,7 +1090,8 @@ class SAMGUI:
                 json_data = {
                     "image": {
                         "name": image_name,
-                        "path": self.image_path
+                        "path": self.image_path,
+                        "patient_name": patient_name
                     },
                     "prompt": {
                         "bounding_box": bbox,
@@ -1133,17 +1140,25 @@ class SAMGUI:
         # Save each mask
         saved_count = 0
         for img_path, mask in self.saved_masks.items():
-            # Generate filename based on original image name
+            # Generate filename based on patient name + original image name
             original_path = img_path.split('#')[0] if '#' in img_path else img_path
             image_name = os.path.basename(original_path)
             base_name, ext = os.path.splitext(image_name)
+            
+            # Extract patient name for this image
+            patient_name = self.thumbnail_gallery._extract_patient_id(img_path)
+            if not patient_name:
+                patient_name = "Unknown"
             
             if '#slice=' in img_path:
                 slice_idx = img_path.split('#slice=')[1]
                 base_name = f"{base_name}_slice{slice_idx}"
             
-            mask_path = os.path.join(masks_dir, f"{base_name}_mask.png")
-            prompt_path = os.path.join(prompts_dir, f"{base_name}_prompt.json")
+            # Create filename with patient name + file name
+            combined_name = f"{patient_name}_{base_name}"
+            
+            mask_path = os.path.join(masks_dir, f"{combined_name}_mask.png")
+            prompt_path = os.path.join(prompts_dir, f"{combined_name}_prompt.json")
             
             # Save the mask
             mask_image = (mask * 255).astype(np.uint8)
@@ -1171,7 +1186,8 @@ class SAMGUI:
                     json_data = {
                         "image": {
                             "name": image_name,
-                            "path": img_path
+                            "path": img_path,
+                            "patient_name": patient_name
                         },
                         "prompt": {
                             "bounding_box": bbox,
@@ -1196,7 +1212,7 @@ class SAMGUI:
                     with open(prompt_path, 'w') as f:
                         json.dump(json_data, f, indent=2)
                     
-                    logger.info(f"Saved mask and prompt for {image_name}")
+                    logger.info(f"Saved mask and prompt for {patient_name}_{image_name}")
             except Exception as e:
                 logger.error(f"Error saving mask for {image_name}: {e}")
         
