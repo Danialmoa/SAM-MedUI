@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog
-from ttkbootstrap import Style, Window, LabelFrame, Label, Button, Checkbutton, Frame, Canvas, Scrollbar, PanedWindow, Scale
+from ttkbootstrap import Style, Window, Labelframe, Label, Button, Checkbutton, Frame, Canvas, Scrollbar, Panedwindow, Scale
 import os
 import cv2
 import numpy as np
@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 import time
 from PIL import Image, ImageTk
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets import ToolTip
 import pydicom
 from pydicom.errors import InvalidDicomError
 import csv
@@ -77,7 +77,7 @@ class SAMGUI:
     def create_ui(self):
         """Create the main UI layout and widgets"""
         # Create main paned window
-        self.main_pane = PanedWindow(self.root, orient=tk.HORIZONTAL, bootstyle="dark")
+        self.main_pane = Panedwindow(self.root, orient=tk.HORIZONTAL, bootstyle="dark")
         self.main_pane.pack(fill=tk.BOTH, expand=True)
         
         # Create the sidebar for thumbnails - increase minimum width
