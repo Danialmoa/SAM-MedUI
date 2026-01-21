@@ -25,19 +25,18 @@ SAM-MedUI is an interactive tool for myocardial scar segmentation from late gado
   - Zoom and pan for detailed inspection
 
 ## Quick Start
-### Installation
 
-# Clone the repository
+### Clone the repository
 git clone https://github.com/Danialmoa/SAM-MedUI
 cd SAM-MedUI
 
-# Install dependencies
+### Install dependencies
 pip install -r requirements.txt
 
-# Create checkpoints folder
+### Create checkpoints folder
 mkdir checkpoints
 
-### Download Model Weights
+#### Download Model Weights
 
 Place the following files in the `checkpoints/` folder:
 
@@ -139,6 +138,7 @@ For questions and collaborations, please contact:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
  
+
 
 
 
