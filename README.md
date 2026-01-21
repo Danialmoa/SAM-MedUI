@@ -1,6 +1,9 @@
 # SAM-MedUI: IInteractive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance
 
 SAM-MedUI is an interactive tool for myocardial scar segmentation from late gadolinium enhancement cardiac MRI (LGE-CMR). It combines a fine-tuned Segment Anything Model with YOLO-based detection and a clinician-facing GUI, enabling fast and reproducible scar quantification.
+## Screenshot
+<img width="789" height="895" alt="image" src="https://github.com/user-attachments/assets/a259853c-8ea1-427a-8eea-fdd465bb1559" />
+
 
 ## Features
 
@@ -21,7 +24,33 @@ SAM-MedUI is an interactive tool for myocardial scar segmentation from late gado
   - Undo/redo functionality
   - Zoom and pan for detailed inspection
 
-## Installation
+## Quick Start
+### Installation
+
+# Clone the repository
+git clone https://github.com/Danialmoa/SAM-MedUI
+cd SAM-MedUI
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create checkpoints folder
+mkdir checkpoints
+
+### Download Model Weights
+
+Place the following files in the `checkpoints/` folder:
+
+| File | Description |
+|------|-------------|
+| `sam_vit_b_01ec64.pth` | SAM base model |
+| `best_model.pth` | Fine-tuned SAM model |
+| `yolo_best.pt` | YOLO detection model |
+
+# Run the GUI
+cd GUI
+python main.py
+
 
 ### Requirements
 
@@ -31,9 +60,6 @@ SAM-MedUI is an interactive tool for myocardial scar segmentation from late gado
 - GUI Application: CPU or GPU supported - can run on any laptop
 - **Note**: The GUI application can run on CPU for inference, making it accessible on standard laptops. GPU is only required for training/fine-tuning the models.
 
-### Setup
+ 
 
-1. Clone the repository:
-git clone <repository-url>
-cd SAM-MedUI
 
