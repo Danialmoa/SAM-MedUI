@@ -1,4 +1,4 @@
-# SAM-MedUI: *IInteractive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance**
+# SAM-MedUI: IInteractive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance
 
 SAM-MedUI is an interactive tool for myocardial scar segmentation from late gadolinium enhancement cardiac MRI (LGE-CMR). It combines a fine-tuned Segment Anything Model with YOLO-based detection and a clinician-facing GUI, enabling fast and reproducible scar quantification.
 
@@ -36,3 +36,4 @@ SAM-MedUI is an interactive tool for myocardial scar segmentation from late gado
 1. Clone the repository:
 git clone <repository-url>
 cd SAM-MedUI
+
