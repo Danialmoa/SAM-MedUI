@@ -1,93 +1,266 @@
-# SAM-MedUI: IInteractive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance
+<div align="center">
 
-SAM-MedUI is an interactive tool for myocardial scar segmentation from late gadolinium enhancement cardiac MRI (LGE-CMR). It combines a fine-tuned Segment Anything Model with YOLO-based detection and a clinician-facing GUI, enabling fast and reproducible scar quantification.
+# SAM-MedUI
+
+### Interactive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance
+
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch 2.7](https://img.shields.io/badge/PyTorch-2.7-EE4C2C.svg)](https://pytorch.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**SAM-MedUI** is a clinician-friendly interactive tool for myocardial scar segmentation from Late Gadolinium Enhancement Cardiac MRI (LGE-CMR). It combines a fine-tuned [Segment Anything Model (SAM)](https://github.com/facebookresearch/segment-anything) with YOLO-based automatic detection and an intuitive GUI—enabling fast, accurate, and reproducible scar quantification without requiring any coding knowledge.
+
+[Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [Usage](#usage) • [Architecture](#architecture) • [Citation](#citation)
+
+</div>
+
+---
+
 ## Screenshot
-<img width="789" height="895" alt="image" src="https://github.com/user-attachments/assets/a259853c-8ea1-427a-8eea-fdd465bb1559" />
 
+<p align="center">
+  <img width="789" alt="SAM-MedUI Interface" src="https://github.com/user-attachments/assets/a259853c-8ea1-427a-8eea-fdd465bb1559" />
+</p>
+
+---
+
+## Key Highlights
+
+| Feature | Description |
+|---------|-------------|
+| **Clinical-Grade Interface** | Built specifically for clinicians with intuitive controls and real-time feedback |
+| **Multiple Input Formats** | Native support for DICOM, NIfTI (3D volumes), JPEG, PNG, and BMP |
+| **Flexible Prompting** | Point-based, bounding box, and automatic YOLO detection |
+| **Real-time Refinement** | Morphological operations, confidence adjustment, and undo/redo |
+| **Quantitative Analysis** | Automatic pixel mass calculations using DICOM/NIfTI metadata |
+| **Runs on CPU** | GUI inference works on any laptop—no GPU required |
+
+---
 
 ## Features
 
-- **Interactive GUI**: User-friendly interface built with Tkinter for real-time medical image segmentation
-- **Multiple Input Formats**: Supports DICOM, NIfTI, and standard image formats (JPEG, PNG)
-- **Flexible Prompting**: 
-  - Point-based prompts (foreground points to indicate regions of interest)
-  - Bounding box prompts
-  - Automatic detection using YOLO integration
-- **Batch Processing**: Process multiple images with thumbnail gallery navigation
-- **Fine-tuning Capabilities**: Tools for fine-tuning SAM on medical imaging datasets
-- **Advanced Features**:
-  - Real-time mask visualization
-  - Morphological operations (expand/shrink masks)
-  - Confidence threshold adjustment
-  - Gamma correction for image enhancement
-  - Export segmentation results to CSV
-  - Undo/redo functionality
-  - Zoom and pan for detailed inspection
+### Interactive Segmentation
+- **Point Prompts**: Left-click to add foreground points (green), right-click for background points (red)
+- **Bounding Box Prompts**: Click and drag to define regions of interest with adjustable handles
+- **Auto-Detection**: YOLO-based automatic cardiac region detection reduces manual prompting
+
+### Medical Imaging Support
+- **DICOM**: Full metadata extraction (patient ID, pixel spacing, slice thickness)
+- **NIfTI**: 3D volume support with automatic slice extraction and navigation
+- **Standard Formats**: JPEG, PNG, BMP for preprocessed images
+
+### Real-time Visualization
+- **Mask Overlay**: Alpha-blended segmentation visualization
+- **Gamma Correction**: Adjustable contrast (0.2–1.7) for enhanced visibility
+- **Zoom & Pan**: 0.5x to 5.0x magnification with smooth navigation
+
+### Mask Refinement
+- **Morphological Operations**: Expand/shrink masks with configurable iterations
+- **Confidence Threshold**: Dynamic adjustment (0.3–0.99) with real-time preview
+- **Undo/Redo**: Up to 10 levels of operation history
+
+### Batch Processing & Export
+- **Thumbnail Gallery**: Patient-centric navigation with multi-slice support
+- **Batch Save**: Export all masks with a single click
+- **CSV Export**: Quantitative results including patient ID, slice, and scar mass
+- **Prompt Storage**: JSON-based prompt saving for reproducibility
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip package manager
+- Git
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/Danialmoa/SAM-MedUI.git
+cd SAM-MedUI
+```
+
+### Step 2: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 3: Download Model Weights
+
+Create a `checkpoints/` folder and download the required model files:
+
+```bash
+mkdir checkpoints
+```
+
+Place the following files in `checkpoints/`:
+
+| File | Description | Required |
+|------|-------------|----------|
+| `sam_vit_b_01ec64.pth` | SAM ViT-B base model weights | Yes |
+| `best_model.pth` | Fine-tuned SAM for cardiac imaging | Yes |
+| `yolo_best.pt` | YOLO detection model for auto-detection | Yes |
+
+> **Note**: Contact the authors for access to the fine-tuned model weights.
+
+### System Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **RAM** | 8 GB | 16 GB |
+| **GPU (Training)** | CUDA-capable GPU | NVIDIA GPU with 8+ GB VRAM |
+| **GPU (Inference)** | Not required | Optional for faster inference |
+| **Storage** | 2 GB for models | 5+ GB with datasets |
+
+---
 
 ## Quick Start
 
-### Clone the repository
-git clone https://github.com/Danialmoa/SAM-MedUI
-cd SAM-MedUI
-
-### Install dependencies
-pip install -r requirements.txt
-
-### Create checkpoints folder
-mkdir checkpoints
-
-#### Download Model Weights
-
-Place the following files in the `checkpoints/` folder:
-
-| File | Description |
-|------|-------------|
-| `sam_vit_b_01ec64.pth` | SAM base model |
-| `best_model.pth` | Fine-tuned SAM model |
-| `yolo_best.pt` | YOLO detection model |
-
-# Run the GUI
+```bash
 cd GUI
 python main.py
+```
 
+### Demo
 
-### Requirements
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8b4b2ff4-a984-4f0e-8444-ed149fb882a6" alt="SAM-MedUI Demo" />
+</p>
 
-- Python 3.8+
-- PyTorch 2.7.0
-- Training (Fine-tuning): CUDA-capable GPU required
-- GUI Application: CPU or GPU supported - can run on any laptop
-- **Note**: The GUI application can run on CPU for inference, making it accessible on standard laptops. GPU is only required for training/fine-tuning the models.
+---
 
 ## Usage
-### Demo
-![JCMR_Video-ezgif com-optimize](https://github.com/user-attachments/assets/8b4b2ff4-a984-4f0e-8444-ed149fb882a6)
 
-### GUI Workflow
+### Basic Workflow
 
-1. Load images → **Load Folder** or **Load Files**
-2. Add prompts → Click for points, drag for bounding box, or use **Auto-Detect**
-3. Generate → Click **Generate Segmentation**
-4. Refine → Use **Expand** or **Shrink** if needed
-5. Save → **Save Mask** or **Export Results**
+1. **Load Images** → Click `Load Folder` or `Load Files` to import medical images
+2. **Add Prompts** → Click for points, drag for bounding boxes, or use `Auto-Detect`
+3. **Generate** → Click `Generate Segmentation` to create the mask
+4. **Refine** → Adjust threshold or use `Expand`/`Shrink` for fine-tuning
+5. **Save** → Export with `Save Mask`, `Save All Masks`, or `Export Results`
 
-## Project Structure
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `←` / `→` | Navigate between images |
+| `Ctrl+Z` | Undo last operation |
+| `Ctrl+Y` | Redo operation |
+| `+` / `-` | Zoom in / out |
+| `Delete` | Clear current mask |
+| `Escape` | Cancel current operation |
+
+### Prompting Modes
+
+| Mode | How to Use | Best For |
+|------|------------|----------|
+| **Point (Foreground)** | Left-click on target region | Precise selection of scar tissue |
+| **Point (Background)** | Right-click on non-target area | Excluding unwanted regions |
+| **Bounding Box** | Click and drag rectangle | Defining region of interest |
+| **Auto-Detect** | Click the Auto-Detect button | Quick initial detection |
+
+### Export Options
+
+- **Save Mask**: Export current segmentation as PNG
+- **Save All Masks**: Batch export all processed images
+- **Export Results**: Generate CSV with quantitative metrics:
+  - Patient ID
+  - Image/slice name
+  - Scar mass (calculated from pixel spacing and slice thickness)
+
+---
+
+## Architecture
+
+### Project Structure
 
 ```
 SAM-MedUI/
-├── GUI/
-│   ├── main.py
-│   ├── model_handler.py
-│   ├── canvas_view.py
-│   └── thumbnail_gallery.py
-├── SAM_finetune/
+├── GUI/                              # Main Application
+│   ├── main.py                       # GUI entry point and main window
+│   ├── model_handler.py              # SAM & YOLO inference logic
+│   ├── canvas_view.py                # Image display and annotation
+│   └── thumbnail_gallery.py          # Patient navigation and thumbnails
+│
+├── SAM_finetune/                     # Training Pipeline
 │   ├── models/
+│   │   ├── sam_model.py              # SAM wrapper with fine-tuning support
+│   │   ├── dataset.py                # Medical imaging dataset loader
+│   │   ├── loss.py                   # Combined loss function
+│   │   └── prompt_generator.py       # Bounding box & point generation
+│   │
 │   ├── train/
+│   │   └── trainer.py                # Training loop with W&B logging
+│   │
 │   └── utils/
-├── checkpoints/
-├── requirements.txt
+│       ├── config.py                 # Configuration dataclasses
+│       ├── preprocessing.py          # Image preprocessing utilities
+│       └── visualize.py              # Visualization helpers
+│
+├── checkpoints/                      # Model weights (user-provided)
+├── logs/                             # Application logs
+├── requirements.txt                  # Python dependencies
 └── README.md
 ```
+
+### Segmentation Pipeline
+
+```
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
+│ Load Image  │───▶│ Add Prompts  │───▶│ SAM Forward │───▶│ Apply Mask   │
+│ (DICOM/NIfTI)    │ (Points/BBox) │    │   Pass      │    │  Threshold   │
+└─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘
+                          │                                       │
+                   ┌──────▼──────┐                         ┌──────▼──────┐
+                   │ YOLO Auto-  │                         │ Morphological│
+                   │  Detection  │                         │  Refinement  │
+                   └─────────────┘                         └─────────────┘
+```
+
+### Training Pipeline
+
+The fine-tuning pipeline includes:
+
+- **Medical-specific augmentations** via TorchIO (elastic deformation, motion artifacts, bias field)
+- **Combined loss function**: Dice + BCE + Soft BCE + KL Divergence + Diversity Loss
+- **Experiment tracking** with Weights & Biases
+- **Learning rate scheduling** with Cosine Annealing
+
+---
+
+## Training (Fine-tuning)
+
+To fine-tune SAM on your own cardiac MRI dataset:
+
+```python
+from SAM_finetune.utils.config import SAMFinetuneConfig, SAMDatasetConfig
+from SAM_finetune.train.trainer import Trainer
+
+# Configure dataset
+dataset_config = SAMDatasetConfig(
+    images_path="path/to/images",
+    masks_path="path/to/masks",
+    train_ratio=0.8
+)
+
+# Configure training
+train_config = SAMFinetuneConfig(
+    learning_rate=1e-4,
+    epochs=100,
+    batch_size=4,
+    use_wandb=True
+)
+
+# Start training
+trainer = Trainer(train_config, dataset_config)
+trainer.train()
+```
+
+---
+
 ## Citation
 
 If you use SAM-MedUI in your research, please cite:
@@ -101,45 +274,51 @@ If you use SAM-MedUI in your research, please cite:
 }
 ```
 
-**Authors:**  
-Aida Moafi¹, Danial Moafi², Simran Shergil¹, Evgeny M. Mirkes³, David Adlam¹⁵, Nilesh J. Samani¹⁵, Gerry P. McCann¹⁵, Mostafa Mehdipour Ghazi⁴*, J. Ranjit Arnold¹*
+### Authors
 
-*Joint senior authorship
+**Aida Moafi**¹, **Danial Moafi**², **Simran Shergil**¹, **Evgeny M. Mirkes**³, **David Adlam**¹⁵, **Nilesh J. Samani**¹⁵, **Gerry P. McCann**¹⁵, **Mostafa Mehdipour Ghazi**⁴\*, **J. Ranjit Arnold**¹\*
 
-**Affiliations:**  
-¹ Department of Cardiovascular Sciences, University of Leicester, NIHR Leicester Biomedical Research Centre and BHF Centre of Research Excellence, Glenfield Hospital, Leicester, UK  
-² Department of Information Engineering and Mathematics, University of Siena, Siena, Italy  
-³ Department of Mathematics, University of Leicester, Leicester, UK  
-⁴ Pioneer Centre for AI, Department of Computer Science, University of Copenhagen, Copenhagen, Denmark  
+*\* Joint senior authorship*
+
+### Affiliations
+
+¹ Department of Cardiovascular Sciences, University of Leicester, NIHR Leicester Biomedical Research Centre and BHF Centre of Research Excellence, Glenfield Hospital, Leicester, UK
+² Department of Information Engineering and Mathematics, University of Siena, Siena, Italy
+³ Department of Mathematics, University of Leicester, Leicester, UK
+⁴ Pioneer Centre for AI, Department of Computer Science, University of Copenhagen, Copenhagen, Denmark
 ⁵ Centre for Digital Health and Precision Medicine, University of Leicester
 
 ---
 
 ## Acknowledgments
 
-We thank the following projects and teams for their foundational work:
+We gratefully acknowledge the following projects:
 
-- [Meta AI Research](https://github.com/facebookresearch/segment-anything) for developing and open-sourcing the **Segment Anything Model (SAM)**
-- [Ultralytics](https://github.com/ultralytics/ultralytics) for the **YOLOv12** object detection framework
+- [**Segment Anything (SAM)**](https://github.com/facebookresearch/segment-anything) by Meta AI Research
+- [**Ultralytics YOLO**](https://github.com/ultralytics/ultralytics) for object detection
+- [**TorchIO**](https://github.com/fepegar/torchio) for medical image augmentation
 
 ---
 
 ## Contact
 
-For questions and collaborations, please contact:
+For questions, collaborations, or access to model weights:
 
-- **Aida Moafi** — [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk)
-- **Danial Moafi** — [d.moafi@student.unisi.it](mailto:d.moafi@student.unisi.it)
+| Name | Email | Role |
+|------|-------|------|
+| **Aida Moafi** | [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk) | Lead Developer |
+| **Danial Moafi** | [d.moafi@student.unisi.it](mailto:d.moafi@student.unisi.it) | Technical Developer |
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
- 
+---
 
+<div align="center">
 
+**Made with care for the medical imaging community**
 
-
-
+</div>
