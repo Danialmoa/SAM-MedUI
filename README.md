@@ -60,6 +60,37 @@ python main.py
 - GUI Application: CPU or GPU supported - can run on any laptop
 - **Note**: The GUI application can run on CPU for inference, making it accessible on standard laptops. GPU is only required for training/fine-tuning the models.
 
+## Usage
+### Demo
+![JCMR_Video-ezgif com-optimize](https://github.com/user-attachments/assets/8b4b2ff4-a984-4f0e-8444-ed149fb882a6)
+
+### GUI Workflow
+
+1. Load images → **Load Folder** or **Load Files**
+2. Add prompts → Click for points, drag for bounding box, or use **Auto-Detect**
+3. Generate → Click **Generate Segmentation**
+4. Refine → Use **Expand** or **Shrink** if needed
+5. Save → **Save Mask** or **Export Results**
+
+## Project Structure
+
+```
+SAM-MedUI/
+├── GUI/
+│   ├── main.py
+│   ├── model_handler.py
+│   ├── canvas_view.py
+│   └── thumbnail_gallery.py
+├── SAM_finetune/
+│   ├── models/
+│   ├── train/
+│   └── utils/
+├── checkpoints/
+├── requirements.txt
+└── README.md
+```
+
  
+
 
 
