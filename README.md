@@ -304,10 +304,9 @@ We gratefully acknowledge the following projects:
 
 For questions, collaborations, or access to model weights:
 
-| Name | Email | Role |
-|------|-------|------|
-| **Aida Moafi** | [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk) | Lead Developer |
-| **Danial Moafi** | [d.moafi@student.unisi.it](mailto:d.moafi@student.unisi.it) | Technical Developer |
+
+**Aida Moafi**  [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk) 
+**Danial Moafi**  [d.moafi@student.unisi.it](mailto:d.moafi@student.unisi.it)
 
 ---
 
@@ -322,3 +321,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 **Made with care for the medical imaging community**
 
 </div>
+
