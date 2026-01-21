@@ -89,8 +89,57 @@ SAM-MedUI/
 ├── requirements.txt
 └── README.md
 ```
+## Citation
+
+If you use SAM-MedUI in your research, please cite:
+
+```bibtex
+@article{moafi2024sammedui,
+  title={Interactive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance},
+  author={Moafi, Aida and Moafi, Danial and Shergil, Simran and Mirkes, Evgeny M. and Adlam, David and Samani, Nilesh J. and McCann, Gerry P. and Ghazi, Mostafa Mehdipour and Arnold, J. Ranjit},
+  journal={},
+  year={}
+}
+```
+
+**Authors:**  
+Aida Moafi¹, Danial Moafi², Simran Shergil¹, Evgeny M. Mirkes³, David Adlam¹⁵, Nilesh J. Samani¹⁵, Gerry P. McCann¹⁵, Mostafa Mehdipour Ghazi⁴*, J. Ranjit Arnold¹*
+
+*Joint senior authorship
+
+**Affiliations:**  
+¹ Department of Cardiovascular Sciences, University of Leicester, NIHR Leicester Biomedical Research Centre and BHF Centre of Research Excellence, Glenfield Hospital, Leicester, UK  
+² Department of Information Engineering and Mathematics, University of Siena, Siena, Italy  
+³ Department of Mathematics, University of Leicester, Leicester, UK  
+⁴ Pioneer Centre for AI, Department of Computer Science, University of Copenhagen, Copenhagen, Denmark  
+⁵ Centre for Digital Health and Precision Medicine, University of Leicester
+
+---
+
+## Acknowledgments
+
+We thank the following projects and teams for their foundational work:
+
+- [Meta AI Research](https://github.com/facebookresearch/segment-anything) for developing and open-sourcing the **Segment Anything Model (SAM)**
+- [Ultralytics](https://github.com/ultralytics/ultralytics) for the **YOLOv12** object detection framework
+
+---
+
+## Contact
+
+For questions and collaborations, please contact:
+
+- **Aida Moafi** — [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk)
+- **Danial Moafi** — [d.moafi@student.unisi.it](mailto:d.moafi@student.unisi.it)
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
  
+
 
 
 
