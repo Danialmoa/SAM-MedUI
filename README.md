@@ -105,7 +105,11 @@ Place the following files in `checkpoints/`:
 | `best_model.pth` | Fine-tuned SAM for cardiac imaging | Yes |
 | `yolo_best.pt` | YOLO detection model for auto-detection | Yes |
 
-> **Note**: Contact the authors for access to the fine-tuned model weights.
+Download the model weights from [🤗 Hugging Face](https://huggingface.co/AidaAIDL/SAM_MEDUI):
+```bash
+pip install huggingface_hub
+huggingface-cli download AidaAIDL/SAM_MEDUI --local-dir checkpoints/
+```
 
 ### System Requirements
 
@@ -306,7 +310,7 @@ We gratefully acknowledge the following projects:
 
 ## Contact
 
-For questions, collaborations, or access to model weights:
+For questions or collaborations:
 
 
 **Aida Moafi**  [am1392@leicester.ac.uk](mailto:am1392@leicester.ac.uk) 
