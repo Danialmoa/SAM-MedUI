@@ -7,6 +7,7 @@
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.7](https://img.shields.io/badge/PyTorch-2.7-EE4C2C.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Paper](https://img.shields.io/badge/JCMR-Paper-blue)](https://www.sciencedirect.com/science/article/pii/S1097664726000384?via%3Dihub)
 
 **SAM-MedUI** is a clinician-friendly interactive tool for myocardial scar segmentation from Late Gadolinium Enhancement Cardiac MRI (LGE-CMR). It combines a fine-tuned [Segment Anything Model (SAM)](https://github.com/facebookresearch/segment-anything) with YOLO-based automatic detection and an intuitive GUI—enabling fast, accurate, and reproducible scar quantification without requiring any coding knowledge.
 
