@@ -266,12 +266,15 @@ trainer.train()
 If you use SAM-MedUI in your research, please cite:
 
 ```bibtex
-@article{moafi2024sammedui,
+@article{moafi2026sammedui,
   title={Interactive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance},
   author={Moafi, Aida and Moafi, Danial and Shergil, Simran and Mirkes, Evgeny M. and Adlam, David and Samani, Nilesh J. and McCann, Gerry P. and Ghazi, Mostafa Mehdipour and Arnold, J. Ranjit},
-  journal={},
-  year={}
+  journal={Journal of Cardiovascular Magnetic Resonance},
+  year={2026},
+  publisher={Elsevier},
+  url={https://www.sciencedirect.com/science/article/pii/S1097664726000384}
 }
+
 ```
 
 ### Authors
