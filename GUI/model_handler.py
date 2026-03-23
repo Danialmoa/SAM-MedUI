@@ -7,7 +7,6 @@ from ultralytics import YOLO
 
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.utils.logger_func import setup_logger
-from SAM_finetune.utils.z_score_norm import PercentileNormalize
 from SAM_finetune.utils.config import SAMGUIConfig
 logger = setup_logger()
 
@@ -145,66 +144,51 @@ class ModelHandler:
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
     
+    def _get_scale_factors(self, image):
+        h, w = image.shape[:2]
+        return 1024 / w, 1024 / h
+
+    def _scale_bbox(self, bbox, scale_x, scale_y):
+        scaled = [
+            max(0, int(bbox[0] * scale_x)),
+            max(0, int(bbox[1] * scale_y)),
+            min(1024, int(bbox[2] * scale_x)),
+            min(1024, int(bbox[3] * scale_y)),
+        ]
+        if scaled[0] >= scaled[2] or scaled[1] >= scaled[3]:
+            logger.warning("Bounding box is invalid or outside image bounds")
+            return None
+        return torch.tensor([[scaled]]).float()
+
+    def _scale_points(self, points, point_labels, scale_x, scale_y):
+        valid_points, valid_labels = [], []
+        for i, (x, y) in enumerate(points):
+            sx, sy = int(x * scale_x), int(y * scale_y)
+            if 0 <= sx < 1024 and 0 <= sy < 1024:
+                valid_points.append([sx, sy])
+                valid_labels.append(point_labels[i])
+            else:
+                logger.warning(f"Point ({x},{y}) is outside image bounds. Skipping.")
+        if not valid_points:
+            logger.warning("All points were outside image bounds")
+            return None
+        return {
+            'coords': torch.tensor([valid_points]).float(),
+            'labels': torch.tensor([valid_labels]).float(),
+        }
+
     def generate_mask(self, image, bbox=None, points=None, point_labels=None, confidence_threshold=0.7):
         logger.info("Preparing image for segmentation")
         image_tensor = self.preprocess_image(image)
-        # Scale the bounding box
-        bbox_tensor = None
-        if bbox is not None:
-            h, w = image.shape[:2]
-            scale_x = 1024 / w
-            scale_y = 1024 / h
-            
-            scaled_bbox = [
-                int(bbox[0] * scale_x),
-                int(bbox[1] * scale_y),
-                int(bbox[2] * scale_x),
-                int(bbox[3] * scale_y)
-            ]
-            
-            valid_bbox = [
-                max(0, scaled_bbox[0]),
-                max(0, scaled_bbox[1]),
-                min(1024, scaled_bbox[2]),
-                min(1024, scaled_bbox[3])
-            ]
-            
-            if valid_bbox[0] < valid_bbox[2] and valid_bbox[1] < valid_bbox[3]:
-                bbox_tensor = torch.tensor([[valid_bbox]]).float()
-            else:
-                logger.warning("Bounding box is invalid or outside image bounds")
-        
-        # Scale points
-        points_data = None
-        if points and point_labels:
-            h, w = image.shape[:2]
-            scale_x = 1024 / w
-            scale_y = 1024 / h
-            
-            valid_points = []
-            valid_labels = []
-            
-            for i, (x, y) in enumerate(points):
-                scaled_x = int(x * scale_x)
-                scaled_y = int(y * scale_y)
-                
-                if 0 <= scaled_x < 1024 and 0 <= scaled_y < 1024:
-                    valid_points.append([scaled_x, scaled_y])
-                    valid_labels.append(point_labels[i])
-                else:
-                    logger.warning(f"Point ({x},{y}) is outside image bounds. Skipping.")
-            
-            if valid_points:
-                point_coords_tensor = torch.tensor([valid_points]).float()
-                point_labels_tensor = torch.tensor([valid_labels]).float()
-                points_data = {'coords': point_coords_tensor, 'labels': point_labels_tensor}
-            else:
-                logger.warning("All points were outside image bounds")
-        
+        scale_x, scale_y = self._get_scale_factors(image)
+
+        bbox_tensor = self._scale_bbox(bbox, scale_x, scale_y) if bbox is not None else None
+        points_data = self._scale_points(points, point_labels, scale_x, scale_y) if points and point_labels else None
+
         if bbox_tensor is None and points_data is None:
             logger.error("No valid prompts available for segmentation")
             return None, None
-        
+
         with torch.no_grad():
             torch.set_num_threads(max(4, os.cpu_count() - 1))
             pred_mask, iou_pred = self.model.forward_one_image(
@@ -213,11 +197,9 @@ class ModelHandler:
                 points=points_data if points_data is not None else None,
                 is_train=False
             )
-        
-        # Store the raw prediction and apply threshold
+
         raw_prediction = pred_mask.cpu().numpy().squeeze()
         thresholded_mask = raw_prediction > confidence_threshold
-
         return thresholded_mask.astype(np.uint8), raw_prediction
     
     def apply_confidence_threshold(self, raw_prediction, confidence_threshold):

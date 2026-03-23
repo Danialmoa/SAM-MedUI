@@ -46,45 +46,43 @@ class PreprocessorConfig:
     
         
 @dataclass
-class SAMFinetuneConfig:
-    """Configuration for SAMFinetune."""
-    #Training
+class SAMBaseConfig:
+    """Base configuration shared by all SAM configs."""
     device: str = 'cuda'
-    wandb_project_name: str = 'SAM_finetune'
-    run_name: str = 'SAM_finetune'
     model_type: str = 'vit_b'
     sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
     checkpoint_path: str = None
+
+
+@dataclass
+class SAMFinetuneConfig(SAMBaseConfig):
+    """Configuration for SAMFinetune."""
+    # Training
+    wandb_project_name: str = 'SAM_finetune'
+    run_name: str = 'SAM_finetune'
     batch_size: int = 16
     num_epochs: int = 10
     learning_rate: float = 1e-4
     weight_decay: float = 0.0001
     num_workers: int = 0
     disable_wandb: bool = False
-    
-    #Loss
+
+    # Loss
     lambda_dice: float = 0.4
     lambda_bce: float = 0.2
     lambda_kl: float = 0.2
     lambda_div: float = 0.1
     lambda_bce_soft: float = 0.1
     sigma: int = 1
-    
-    
+
+
 @dataclass
-class SAMGUIConfig:
+class SAMGUIConfig(SAMBaseConfig):
     """Configuration for SAMGUI."""
-    device: str = 'cuda'
-    model_type: str = 'vit_b'
-    sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
     checkpoint_path: str = 'checkpoints/best_model.pth'
     yolo_model_path: str = 'pretrained_models/yolo_model.pt'
     yolo_confidence: float = 0.25
-    
-@dataclass
-class SAMInferenceConfig:
-    """Configuration for SAMInference."""
-    device: str = 'cuda'
-    model_type: str = 'vit_b'
-    sam_path: str = 'pretrained_models/sam_vit_b_01ec64.pth'
-    checkpoint_path: str = 'checkpoints/best_model.pth'
+
+
+# Alias for backward compatibility with notebooks
+SAMInferenceConfig = SAMGUIConfig
