@@ -1577,7 +1577,10 @@ class SAMGUI:
         self.redraw_canvas()
         self.update_status(f"Undid: {last_state['action_type']}")
 
-if __name__ == "__main__":
+def main():
+    from download_weights import ensure_weights
+    ensure_weights()
+
     config = SAMGUIConfig(
         model_type='vit_b',
         checkpoint_path='checkpoints/best_model.pth',
@@ -1588,3 +1591,7 @@ if __name__ == "__main__":
     root = Window(themename="darkly")
     app = SAMGUI(root, config)
     root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

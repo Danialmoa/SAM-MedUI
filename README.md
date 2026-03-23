@@ -4,7 +4,7 @@
 
 ### Interactive Deep Learning for Myocardial Scar Segmentation Using Cardiovascular Magnetic Resonance
 
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.7](https://img.shields.io/badge/PyTorch-2.7-EE4C2C.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Paper](https://img.shields.io/badge/JCMR-Paper-blue)](https://www.sciencedirect.com/science/article/pii/S1097664726000384?via%3Dihub)
@@ -32,7 +32,7 @@
 | **Clinical-Grade Interface** | Built specifically for clinicians with intuitive controls and real-time feedback |
 | **Multiple Input Formats** | Native support for DICOM, NIfTI (3D volumes), JPEG, PNG, and BMP |
 | **Flexible Prompting** | Point-based, bounding box, and automatic YOLO detection |
-| **Real-time Refinement** | Morphological operations, confidence adjustment, and undo/redo |
+| **Real-time Refinement** | Morphological operations, confidence adjustment, and undo |
 | **Quantitative Analysis** | Automatic pixel mass calculations using DICOM/NIfTI metadata |
 | **Runs on CPU** | GUI inference works on any laptop—no GPU required |
 
@@ -41,7 +41,7 @@
 ## Features
 
 ### Interactive Segmentation
-- **Point Prompts**: Left-click to add foreground points (green), right-click for background points (red)
+- **Point Prompts**: Left-click to add foreground points (green)
 - **Bounding Box Prompts**: Click and drag to define regions of interest with adjustable handles
 - **Auto-Detection**: YOLO-based automatic cardiac region detection reduces manual prompting
 
@@ -58,7 +58,7 @@
 ### Mask Refinement
 - **Morphological Operations**: Expand/shrink masks with configurable iterations
 - **Confidence Threshold**: Dynamic adjustment (0.3–0.99) with real-time preview
-- **Undo/Redo**: Up to 10 levels of operation history
+- **Undo**: Up to 10 levels of operation history
 
 ### Batch Processing & Export
 - **Thumbnail Gallery**: Patient-centric navigation with multi-slice support
@@ -72,7 +72,7 @@
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.9 or higher
 - pip package manager
 - Git
 
@@ -89,27 +89,26 @@ cd SAM-MedUI
 pip install -r requirements.txt
 ```
 
-### Step 3: Download Model Weights
+### Step 3: Run
 
-Create a `checkpoints/` folder and download the required model files:
+Model weights are **downloaded automatically** on first launch from [🤗 Hugging Face](https://huggingface.co/AidaAIDL/SAM_MEDUI).
 
 ```bash
-mkdir checkpoints
+cd GUI
+python main.py
 ```
 
-Place the following files in `checkpoints/`:
+To download weights manually instead:
 
-| File | Description | Required |
-|------|-------------|----------|
-| `sam_vit_b_01ec64.pth` | SAM ViT-B base model weights | Yes |
-| `best_model.pth` | Fine-tuned SAM for cardiac imaging | Yes |
-| `yolo_best.pt` | YOLO detection model for auto-detection | Yes |
-
-Download the model weights from [🤗 Hugging Face](https://huggingface.co/AidaAIDL/SAM_MEDUI):
 ```bash
 pip install huggingface_hub
 huggingface-cli download AidaAIDL/SAM_MEDUI --local-dir checkpoints/
 ```
+
+| File | Description |
+|------|-------------|
+| `best_model.pth` | Fine-tuned SAM for cardiac scar segmentation |
+| `yolo_best.pt` | YOLO detection model for automatic ROI detection |
 
 ### System Requirements
 
@@ -153,17 +152,16 @@ python main.py
 |----------|--------|
 | `←` / `→` | Navigate between images |
 | `Ctrl+Z` | Undo last operation |
-| `Ctrl+Y` | Redo operation |
-| `+` / `-` | Zoom in / out |
-| `Delete` | Clear current mask |
-| `Escape` | Cancel current operation |
+| `Ctrl++` / `Ctrl+-` | Zoom in / out |
+| `Ctrl+0` | Reset zoom |
+| `Ctrl+Arrow keys` | Pan view |
+| Hold `Z` | Temporarily hide mask & prompts |
 
 ### Prompting Modes
 
 | Mode | How to Use | Best For |
 |------|------------|----------|
 | **Point (Foreground)** | Left-click on target region | Precise selection of scar tissue |
-| **Point (Background)** | Right-click on non-target area | Excluding unwanted regions |
 | **Bounding Box** | Click and drag rectangle | Defining region of interest |
 | **Auto-Detect** | Click the Auto-Detect button | Quick initial detection |
 
@@ -188,7 +186,8 @@ SAM-MedUI/
 │   ├── main.py                       # GUI entry point and main window
 │   ├── model_handler.py              # SAM & YOLO inference logic
 │   ├── canvas_view.py                # Image display and annotation
-│   └── thumbnail_gallery.py          # Patient navigation and thumbnails
+│   ├── thumbnail_gallery.py          # Patient navigation and thumbnails
+│   └── download_weights.py           # Auto-download weights from HuggingFace
 │
 ├── SAM_finetune/                     # Training Pipeline
 │   ├── models/
@@ -202,12 +201,15 @@ SAM-MedUI/
 │   │
 │   └── utils/
 │       ├── config.py                 # Configuration dataclasses
+│       ├── logger_func.py            # Logging setup with rotation
 │       ├── preprocessing.py          # Image preprocessing utilities
+│       ├── z_score_norm.py           # Percentile normalization
 │       └── visualize.py              # Visualization helpers
 │
-├── checkpoints/                      # Model weights (user-provided)
+├── checkpoints/                      # Model weights (auto-downloaded)
 ├── logs/                             # Application logs
 ├── requirements.txt                  # Python dependencies
+├── setup.py                          # Package setup
 └── README.md
 ```
 
@@ -242,25 +244,30 @@ To fine-tune SAM on your own cardiac MRI dataset:
 
 ```python
 from SAM_finetune.utils.config import SAMFinetuneConfig, SAMDatasetConfig
-from SAM_finetune.train.trainer import Trainer
+from SAM_finetune.models.dataset import SAMDataset
+from SAM_finetune.train.trainer import SAMTrainer
 
 # Configure dataset
 dataset_config = SAMDatasetConfig(
-    images_path="path/to/images",
-    masks_path="path/to/masks",
-    train_ratio=0.8
+    dataset_path="path/to/dataset",
+    point_prompt=True,
+    box_prompt=True,
+    number_of_prompts=2,
 )
+
+# Create dataset
+train_dataset = SAMDataset(config=dataset_config)
 
 # Configure training
 train_config = SAMFinetuneConfig(
+    sam_path="pretrained_models/sam_vit_b_01ec64.pth",
     learning_rate=1e-4,
-    epochs=100,
+    num_epochs=100,
     batch_size=4,
-    use_wandb=True
 )
 
 # Start training
-trainer = Trainer(train_config, dataset_config)
+trainer = SAMTrainer(config=train_config, train_dataset=train_dataset)
 trainer.train()
 ```
 
