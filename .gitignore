@@ -1,10 +1,12 @@
+# OS
 .DS_Store
-.venv
-logs/*
-SAM_finetune/checkpoints/*
-SAMUI.egg-info/*    
-GUI/__pycache__/*
-GUI/GUI.egg-info/*
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # Python
 __pycache__/
@@ -12,9 +14,16 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Build / packaging
 build/
-develop-eggs/
 dist/
+develop-eggs/
 downloads/
 eggs/
 .eggs/
@@ -27,13 +36,18 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-# Python cache files
-__pycache__/
-*/__pycache__/
-**/__pycache__/
-*.pyc
+
+# Project-specific
+logs/*
 checkpoints/*
+SAM_finetune/checkpoints/*
 SAM_finetune/data/*
+pretrained_models/
+
+# Experiment tracking
 wandb/*
-slurm/*
 runs/*
+slurm/*
+
+# Misc
+log_analyze/

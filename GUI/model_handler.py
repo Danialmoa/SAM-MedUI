@@ -5,7 +5,6 @@ import os
 from ultralytics import YOLO
 
 
-from SAM_finetune.models.dataset import PercentileNormalize
 from SAM_finetune.models.sam_model import SAMModel
 from SAM_finetune.utils.logger_func import setup_logger
 from SAM_finetune.utils.z_score_norm import PercentileNormalize
@@ -132,7 +131,7 @@ class ModelHandler:
             return None
         
             
-    def _precentile_normalize(self, image):
+    def _percentile_normalize(self, image):
         np_image = np.array(image)
         lower_percentile = np.percentile(np_image, 0.5)
         upper_percentile = np.percentile(np_image, 99.5)
@@ -141,7 +140,7 @@ class ModelHandler:
         return normalized_image
         
     def preprocess_image(self, image):
-        normalized_image = self._precentile_normalize(image)
+        normalized_image = self._percentile_normalize(image)
         processed_img = cv2.resize(normalized_image, (1024, 1024))
         image_tensor = torch.from_numpy(processed_img).permute(2, 0, 1).float().unsqueeze(0)
         return image_tensor
