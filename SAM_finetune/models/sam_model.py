@@ -21,13 +21,18 @@ class SAMModel(nn.Module):
         torch.cuda.empty_cache()
         
     def load_model(self):
-        sam = sam_model_registry[self.config.model_type](checkpoint=self.config.sam_path)
-        print("Load SAM model from ", self.config.sam_path)
-        sam.to(self.device)
         if self.config.checkpoint_path:
+            # Build architecture without base weights, then load fine-tuned checkpoint
+            sam = sam_model_registry[self.config.model_type](checkpoint=None)
+            sam.to(self.device)
             checkpoint = torch.load(self.config.checkpoint_path, map_location=self.device)
             sam.load_state_dict(checkpoint['model_state_dict'])
-            print("Loaded checkpoint")
+            print("Loaded checkpoint from", self.config.checkpoint_path)
+        else:
+            # Use base SAM weights (e.g. for training from scratch)
+            sam = sam_model_registry[self.config.model_type](checkpoint=self.config.sam_path)
+            sam.to(self.device)
+            print("Loaded base SAM from", self.config.sam_path)
         return sam
     
     def forward_one_image(
