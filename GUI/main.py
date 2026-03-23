@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 import time
 from PIL import Image, ImageTk
-from ttkbootstrap.widgets import ToolTip
+from ttkbootstrap.tooltip import ToolTip
 import pydicom
 from pydicom.errors import InvalidDicomError
 import csv
@@ -178,7 +178,7 @@ class SAMGUI:
         """Create the toolbar with control buttons"""
         # Main controls frame - use standard LabelFrame (no rounded version available)
         
-        toolbar = LabelFrame(self.control_frame, text="Controls", bootstyle="white")
+        toolbar = Labelframe(self.control_frame, text="Controls", bootstyle="white")
         toolbar.pack(fill=tk.X, expand=True, padx=5, pady=5)
         
         # Create three separate frames for the rows
